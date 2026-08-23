@@ -26,6 +26,7 @@
 #include "afxcolorbutton.h" // For Color Button
 #include <Windows.h>        // Для использования HWND
 #include <fstream> // Для работы с JSON
+#include <sstream> // Для разбора строковых значений конфигурации
 #include <nlohmann/json.hpp> // Для работы с JSON
 #include <gdiplus.h>
 

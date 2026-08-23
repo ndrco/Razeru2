@@ -66,7 +66,6 @@ BOOL CTAB2::OnInitDialog() {
     GetKeyboardKeys(m_keyboardKeys); // Load keyboard keys layout
 
     // Initialize the color button with default settings
-    CMFCColorButton();
     m_ColorButton.EnableOtherButton(_T("Other"), FALSE, TRUE);
 
         

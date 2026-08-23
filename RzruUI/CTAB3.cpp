@@ -50,7 +50,6 @@ BOOL CTAB3::OnInitDialog()
     }
 
     // Initializing button
-    CMFCColorButton();
     m_ColorButton.EnableOtherButton(_T("Other"), FALSE, TRUE);
 
     // Initializing CComboBox

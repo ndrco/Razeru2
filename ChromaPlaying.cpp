@@ -99,6 +99,7 @@ int ChromaPlaying::Cleanup() {
     RZRESULT result = 0;
     if (ChromaAnimationAPI::GetIsInitializedAPI()) {
         if (ChromaAnimationAPI::IsInitialized()) {
+            _ReleaseKeyboardEffect();
             ChromaAnimationAPI::StopAll();
             ChromaAnimationAPI::CloseAll();
             result = ChromaAnimationAPI::Uninit();
@@ -210,7 +211,7 @@ bool  ChromaPlaying::UpdateConfig() {
     bool success = false;
 
     if (hModule) {
-        // Получаем конфигурацию
+        // РџРѕР»СѓС‡Р°РµРј РєРѕРЅС„РёРіСѓСЂР°С†РёСЋ
         auto GetConfiguration = reinterpret_cast<GetConfigFunc>(GetProcAddress(hModule, "GetConfiguration"));
         if (GetConfiguration) {
             ConfigData* configPointer = GetConfiguration(); // Retrieve the updated configuration
@@ -231,7 +232,9 @@ bool  ChromaPlaying::UpdateConfig() {
 // Play a single frame with effects of the keys animation and static backlight
 void ChromaPlaying::PlayingFrameKeyboard(const std::optional<std::reference_wrapper<std::vector<std::pair<int, int>>>> keyStateMap, const bool nextframe) {
   
-    ChromaPlaying::IncrementFrameIndex(); // Advance the frame index
+    if (nextframe) {
+        ChromaPlaying::IncrementFrameIndex(); // Advance the frame index
+    }
     auto effect = ChromaPlaying::GetActiveSceneEffect(); // Get the active scene effect
     if (effect) {
 
@@ -248,8 +251,10 @@ void ChromaPlaying::PlayingFrameKeyboard(const std::optional<std::reference_wrap
                 // Apply key-specific effects to the animation frame
                 ChromaPlaying::_KeyAnimation(keyStateMap.value(), chromaKeyEffect, _tempColorsKeyboard);
             }
-            // Send the updated frame to the keyboard
-            ChromaAnimationAPI::SetEffectCustom2D((int)EChromaSDKDevice2DEnum::DE_Keyboard, &_tempColorsKeyboard[0]);
+            // Send the updated frame using the low-level effect path. Recent
+            // Chroma App runtimes accept SetEffectCustom2D but may not retain
+            // its keyboard output, while CoreSetEffect is rendered correctly.
+            _SetKeyboardFrame(_tempColorsKeyboard);
         }
     }
 }
@@ -275,8 +280,59 @@ void ChromaPlaying::StopAutoKeyboard() {
     if (effect) {
         ChromaAnimationAPI::CloseAnimationName(effect->keyboardAnimation.c_str());
     }
+    _ReleaseKeyboardEffect();
 }
 
+
+// Display a keyboard frame through a retained low-level SDK effect.
+bool ChromaPlaying::_SetKeyboardFrame(const std::vector<int>& colors) {
+    if (colors.size() < SIZEKEYBOARD) {
+        return false;
+    }
+
+    Keyboard::CUSTOM_EFFECT_TYPE keyboardEffect = {};
+    for (RZSIZE row = 0; row < Keyboard::MAX_ROW; ++row) {
+        for (RZSIZE column = 0; column < Keyboard::MAX_COLUMN; ++column) {
+            const size_t index = static_cast<size_t>(row) * Keyboard::MAX_COLUMN + column;
+            keyboardEffect.Color[row][column] = static_cast<COLORREF>(colors[index]);
+        }
+    }
+
+    RZEFFECTID nextEffectId = {};
+    std::lock_guard<std::mutex> lock(_keyboardEffectMutex);
+
+    RZRESULT result = ChromaAnimationAPI::CoreCreateKeyboardEffect(
+        Keyboard::CHROMA_CUSTOM,
+        &keyboardEffect,
+        &nextEffectId);
+    if (result != RZRESULT_SUCCESS) {
+        return false;
+    }
+
+    result = ChromaAnimationAPI::CoreSetEffect(nextEffectId);
+    if (result != RZRESULT_SUCCESS) {
+        ChromaAnimationAPI::CoreDeleteEffect(nextEffectId);
+        return false;
+    }
+
+    if (_hasKeyboardEffect) {
+        ChromaAnimationAPI::CoreDeleteEffect(_keyboardEffectId);
+    }
+    _keyboardEffectId = nextEffectId;
+    _hasKeyboardEffect = true;
+    return true;
+}
+
+
+// Release the retained low-level keyboard effect.
+void ChromaPlaying::_ReleaseKeyboardEffect() {
+    std::lock_guard<std::mutex> lock(_keyboardEffectMutex);
+    if (_hasKeyboardEffect) {
+        ChromaAnimationAPI::CoreDeleteEffect(_keyboardEffectId);
+        _keyboardEffectId = RZEFFECTID{};
+        _hasKeyboardEffect = false;
+    }
+}
 
 // Automatically play animations for connected other Chroma devices 
 void ChromaPlaying::PlayingAutoDevices() {
@@ -401,7 +457,10 @@ const ChromaPlaying::ChromaKeyboardEffect* ChromaPlaying::GetActiveSceneEffect()
 void ChromaPlaying::IncrementFrameIndex() {
     if (_activeSceneEffectIndex >= 0 && _activeSceneEffectIndex < static_cast<int>(chromaKeyboardEffect.size())) {
         ChromaKeyboardEffect& effect = chromaKeyboardEffect[_activeSceneEffectIndex];
-        effect.frameIndex = (effect.frameIndex + effect.frames + effect.speed) % effect.frames;
+        if (effect.frames > 0) {
+            const int nextFrame = (effect.frameIndex + effect.speed) % effect.frames;
+            effect.frameIndex = (nextFrame + effect.frames) % effect.frames;
+        }
     }
 }
 
@@ -427,6 +486,8 @@ void ChromaPlaying::SetConfig(const ConfigData& configData) {
    
     chromaKeyEffect = ChromaKeyEffect(); 
     chromaKeyEffect = configData.keyEffect; // Update key-specific effect
+    chromaKeyEffect.frameDuration = (std::max)(10, (std::min)(999, chromaKeyEffect.frameDuration));
+    chromaKeyEffect.framesOfKeyAnimation = (std::max)(1, (std::min)(999, chromaKeyEffect.framesOfKeyAnimation));
     
     chromaBacklightEffect = ChromaBacklightEffect();
     chromaBacklightEffect = configData.backlightEffect; // Update backlight settings
@@ -518,8 +579,11 @@ void ChromaPlaying::LoadDefaultConfig() {
 // Recalculate animation frame parameters for all keyboard effects
 void ChromaPlaying::SetFramesParameters() {
     for (auto& effect : chromaKeyboardEffect) {
-        effect.frameDuration = static_cast<int>(1000 * ChromaAnimationAPI::GetFrameDurationName(effect.keyboardAnimation.c_str(), 0));
-        effect.frames = ChromaAnimationAPI::GetFrameCountName(effect.keyboardAnimation.c_str());
+        const int frameDuration = static_cast<int>(1000 * ChromaAnimationAPI::GetFrameDurationName(effect.keyboardAnimation.c_str(), 0));
+        const int frameCount = ChromaAnimationAPI::GetFrameCountName(effect.keyboardAnimation.c_str());
+        effect.frameDuration = (std::max)(1, frameDuration);
+        effect.frames = (std::max)(1, frameCount);
+        effect.frameIndex = (std::max)(0, effect.frameIndex % effect.frames);
     }
 }
 

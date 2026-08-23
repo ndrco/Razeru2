@@ -1,0 +1,57 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Razeru: Build Release x64",
+      "type": "shell",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\scripts\\build.ps1",
+        "-Configuration",
+        "Release",
+        "-Platform",
+        "x64"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Razeru: Analyze Release x64",
+      "type": "shell",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\scripts\\build.ps1",
+        "-Configuration",
+        "Release",
+        "-Platform",
+        "x64",
+        "-Analyze"
+      ],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Razeru: Build Windows installer",
+      "type": "shell",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\installer\\build-installer.ps1"
+      ],
+      "problemMatcher": "$msCompile"
+    }
+  ]
+}

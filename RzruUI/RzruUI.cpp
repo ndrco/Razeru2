@@ -40,8 +40,6 @@ CRzruUIApp theApp;
 BOOL CRzruUIApp::InitInstance() {
     CWinApp::InitInstance();
     CMFCVisualManager::SetDefaultManager(RUNTIME_CLASS(CMFCVisualManagerWindows));
-    static std::unique_ptr<ChromaPlaying::ConfigData> localData = nullptr;
-       
     return TRUE; // Indicate successful initialization
 }
 
@@ -84,7 +82,7 @@ extern "C" __declspec(dllexport) void InitializeDLL(HWND parent, UINT configChan
     g_notifyWindow = parent;  // Сохраняем дескриптор окна
     WM_CHANGED = configChangedMessage;
 
-    if (localData != nullptr) {
+    if (localData == nullptr) {
         localData = std::make_unique<ChromaPlaying::ConfigData>();
     }
 }
@@ -554,7 +552,7 @@ void CConfigDialog::AddToStartup() {
 
                 if (pTab4->m_CheckAutoload) { // Add to startup
 
-                    std::string appPath = SetExecutableFile();
+                    std::string appPath = "\"" + SetExecutableFile() + "\"";
 
                     if (RegOpenKeyExA(HKEY_CURRENT_USER, regPath.c_str(), 0, KEY_WRITE, &hKey) == ERROR_SUCCESS) {
                         if (RegSetValueExA(hKey, APP_NAME, 0, REG_SZ,

@@ -11,6 +11,7 @@
 
 
 #include <optional>
+#include <mutex>
 #include "Razer/ChromaAnimationAPI.h"
 
 
@@ -183,6 +184,9 @@ public:
     int _activeSceneEffectIndex{ -1 }; // Active keyboard animation index
     const char* _memoryAnimationName{ "Act" }; // Name of the active keyboard animation storied in the memory
     std::vector<int> _tempColorsKeyboard; // Temporary array for processing keyboard effects
+    RZEFFECTID _keyboardEffectId{}; // Currently displayed low-level keyboard effect
+    bool _hasKeyboardEffect{ false };
+    std::mutex _keyboardEffectMutex;
     bool _devicesAnimation{ true }; //Flag for enabling Razer device animation (except keyboard)
     std::vector<DEVICE_INFO_TYPE> _connectedDevices; // List of connected Razer devices (except keyboard)
 
@@ -200,6 +204,12 @@ public:
 
     // Animation restart
     void _RestartAnimation(const std::string& animationName, const bool loop);
+
+    // Display a keyboard frame through the low-level SDK effect path.
+    bool _SetKeyboardFrame(const std::vector<int>& colors);
+
+    // Delete the low-level keyboard effect retained by the SDK.
+    void _ReleaseKeyboardEffect();
 
     // Blend the current frame `tempColors` of the active animation `effect`
     // with the array of keys requiring backlighting (`colors`)

@@ -596,7 +596,7 @@ int ChromaAnimationAPI::InitAPI()
 	}
 
 	wchar_t filename[MAX_PATH]; //this is a char buffer
-	GetModuleFileNameW(NULL, filename, sizeof(filename));
+	GetModuleFileNameW(NULL, filename, _countof(filename));
 
 	std::wstring path;
 	const size_t last_slash_idx = std::wstring(filename).rfind('\\');

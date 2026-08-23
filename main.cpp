@@ -166,11 +166,12 @@ void ProcessKeyEvent(int vkCode, int duration) {
     RazerKeyboardMapping* mapping = RazerKeyboardMapping::GetInstance();
     int rzKey = mapping->GetRZKEY(vkCode);
     if (rzKey != Keyboard::RZKEY::RZKEY_INVALID) {
+        std::lock_guard<std::mutex> lock(queueMutex);
         bool found = false;
 
         // Check if the key code already exists in the buffer
         for (auto& pair : keyStateMap) {
-            if (pair.first == rzKey && pair.second != duration) {
+            if (pair.first == rzKey) {
                 // Если код найден, обновляем срок хранения
                 pair.second = duration;
                 found = true;
@@ -252,22 +253,26 @@ void EventProcessingThread() {
         elapsedTimeForKeyFrame += deltaTime;
         elapsedTimeForAnimation += deltaTime;
 
-        // Process events in keyStateMap
-        if (!keyStateMap.empty() && chroma.IsKeyAnimationOn()) {
-            if (elapsedTimeForKeyFrame >= keyFrameDuration) {
-                ProcessKeyStateMap(keyStateMap);
-                elapsedTimeForKeyFrame -= keyFrameDuration;
+        bool advanceAnimation = false;
+        std::vector<std::pair<int, int>> keyStateSnapshot;
+        {
+            std::lock_guard<std::mutex> stateLock(queueMutex);
+            // Process events in keyStateMap
+            if (!keyStateMap.empty() && chroma.IsKeyAnimationOn()) {
+                if (elapsedTimeForKeyFrame >= keyFrameDuration) {
+                    ProcessKeyStateMap(keyStateMap);
+                    elapsedTimeForKeyFrame -= keyFrameDuration;
+                }
             }
+            keyStateSnapshot = keyStateMap;
+            keysEvent = false; // Reset the event flag
         }
         // Update overall animation
         if (elapsedTimeForAnimation >= animationFrameDuration) {
-            chroma.PlayingFrameKeyboard(keyStateMap, true); // Update the animation frame
+            advanceAnimation = true;
             elapsedTimeForAnimation -= animationFrameDuration;
         }
-        else {
-            chroma.PlayingFrameKeyboard(keyStateMap, false); // Without updating the frame
-        }
-        keysEvent = false; // Reset the event flag
+        chroma.PlayingFrameKeyboard(keyStateSnapshot, advanceAnimation);
     }
 }
 
@@ -311,27 +316,27 @@ int InitChromaHandlers() {
 
     int err = chroma.InitChroma(hwndMain, WM_CONFIG_CHANGED);
 
-    TCHAR message[100] = { 0 };
+    LPCTSTR message = TEXT("");
     switch (err) {
     case 0:
         break; // Initialization successful
     case 1:
-        wsprintf(message, TEXT("Failed to init Chroma API!"));
+        message = TEXT("Failed to load the Razeru Chroma bridge. Repair Razeru and the Microsoft Visual C++ Runtime.");
         break;
     case 100:
-        wsprintf(message, TEXT("No Chroma devices are connected!"));
+        message = TEXT("No Chroma devices are connected. Connect a supported device and verify it in Razer Chroma App.");
         break;
     case 101:
-        wsprintf(message, TEXT("Chroma keyboard is not connected!"));
+        message = TEXT("A Chroma keyboard is not connected. Check the USB connection and verify the keyboard in Razer Chroma App.");
         break;
     case 6023:
-        wsprintf(message, TEXT("Chroma DLL is not found!"));
+        message = TEXT("The Razer Chroma SDK runtime is missing. Install and start the Razer Chroma App, enable Chroma Apps, and restart Razeru.\n\nhttps://www.razer.com/chroma");
         break;
     case 6033:
-        wsprintf(message, TEXT("Chroma DLL has an invalid signature!"));
+        message = TEXT("The Razer Chroma DLL has an invalid signature!");
         break;
     default:
-        wsprintf(message, TEXT("Failed to initialize Chroma!"));
+        message = TEXT("Failed to initialize Razer Chroma!");
     }
     if (err) {
         MessageBox(NULL, message, TEXT("Error"), MB_ICONERROR);
@@ -347,11 +352,12 @@ int InitChromaHandlers() {
 void pauseAll() {
     
     KillTimer(hwndMain, ID_TIMER); // Stop the keyboard layout check timer
-    chroma.StopAutoKeyboard(); // Stop any active Chroma keyboard animations
     if (isProcessingThreadRunning.load()) {
-        pauseProcessing.store(true); // Pause the processing thread
+        pauseProcessing.store(true); // Pause the processing thread before releasing its effect
     }
+    chroma.StopAutoKeyboard(); // Stop automatic playback and release any manual keyboard effect
     if (isHookSet.load()) {
+        std::lock_guard<std::mutex> lock(queueMutex);
         keyStateMap.clear(); // Clear the key buffer
     }
 }

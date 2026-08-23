@@ -65,7 +65,7 @@ namespace ChromaSDK
 				// Allocate memory for signer information.
 				pSignerInfo = (PCMSG_SIGNER_INFO)LocalAlloc(LPTR, dwSignerInfo);
 
-				if (TRUE == CryptMsgGetParam(hMsg,
+				if (pSignerInfo != NULL && TRUE == CryptMsgGetParam(hMsg,
 					CMSG_SIGNER_INFO_PARAM,
 					0,
 					(PVOID)pSignerInfo,
@@ -100,7 +100,7 @@ namespace ChromaSDK
 							szName = (LPTSTR)LocalAlloc(LPTR, dwData * sizeof(TCHAR));
 
 							// Get subject name.
-							if (CertGetNameString(pCertContext,
+							if (szName != NULL && CertGetNameString(pCertContext,
 								CERT_NAME_SIMPLE_DISPLAY_TYPE,
 								0,
 								NULL,
@@ -279,7 +279,7 @@ namespace ChromaSDK
 		{
 			LPSTR verData = (LPSTR)malloc(verSize);
 
-			if (GetFileVersionInfo(filename.c_str(), verHandle, verSize, verData))
+			if (verData != NULL && GetFileVersionInfo(filename.c_str(), 0, verSize, verData))
 			{
 				if (VerQueryValue(verData, L"\\", (VOID FAR * FAR*) & lpBuffer, &size))
 				{

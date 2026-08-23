@@ -1,0 +1,52 @@
+{
+  "backlightEffect": {
+    "backLightOn": true,
+    "blend": 0,
+    "colorsKeyboard": [
+      "0,255,0,65280,65280,65280,65280,65280,65280,65280,65280,65280,65280,65280,65280,255,255,255,0,0,0,0,",
+      "0,8388736,0,0,0,0,0,0,0,0,0,0,0,0,8388736,255,255,255,0,0,0,0,",
+      "0,8388736,0,0,0,0,0,0,0,0,0,0,0,0,8388736,255,255,255,0,0,0,0,",
+      "0,8388736,0,0,0,0,0,0,0,0,0,0,0,0,8388736,0,0,0,0,0,0,0,",
+      "0,8388736,0,0,0,0,0,0,0,0,0,0,0,0,8388736,0,16711680,0,0,0,0,0,",
+      "0,8388736,8388736,8388736,0,0,0,8388736,0,0,0,8388736,8388736,8388736,8388736,16711680,16711680,16711680,0,0,0,0"
+    ],
+    "mode": 0
+  },
+  "devicesAnimation": true,
+  "keyEffect": {
+    "frameDuration": 33,
+    "framesOfKeyAnimation": 33,
+    "name": 5,
+    "primaryColor": 65535
+  },
+  "keyboardEffect": [
+    {
+      "chromaLinkAnimation": "Animations/Green_Gradient_ChromaLink.chroma",
+      "frameDuration": 33,
+      "frameIndex": 0,
+      "frames": 60,
+      "headSetAnimation": "Animations/Green_Gradient_Headset.chroma",
+      "keyPadAnimation": "Animations/Green_Gradient_Keypad.chroma",
+      "keyboardAnimation": "Animations/Green_Gradient_Keyboard.chroma",
+      "keyboardLayout": 1049,
+      "mouseAnimation": "Animations/Green_Gradient_Mouse.chroma",
+      "mousePadAnimation": "Animations/Green_Gradient_Mousepad.chroma",
+      "speed": 1
+    },
+    {
+      "chromaLinkAnimation": "Animations/Pink_Gradient_ChromaLink.chroma",
+      "frameDuration": 33,
+      "frameIndex": 0,
+      "frames": 60,
+      "headSetAnimation": "Animations/Pink_Gradient_Headset.chroma",
+      "keyPadAnimation": "Animations/Pink_Gradient_Keypad.chroma",
+      "keyboardAnimation": "Animations/Pink_Gradient_Keyboard.chroma",
+      "keyboardLayout": 1033,
+      "mouseAnimation": "Animations/Pink_Gradient_Mouse.chroma",
+      "mousePadAnimation": "Animations/Pink_Gradient_Mousepad.chroma",
+      "speed": 1
+    }
+  ],
+  "primary_lang": 25,
+  "sub_lang": 1
+}

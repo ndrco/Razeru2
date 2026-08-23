@@ -113,9 +113,9 @@ BOOL CTAB1::OnInitDialog() {
         // Can use LOCALE_SLANGUAGE or LOCALE_SLANGDISPLAYNAME
         // LOCALE_SLANGDISPLAYNAME gives a more "complete" name but isn't available in all Windows versions.
         wchar_t langName[128] = { 0 };
-        if (GetLocaleInfoW(locale, LOCALE_SLANGDISPLAYNAME, langName, sizeof(langName)) == 0) {
+        if (GetLocaleInfoW(locale, LOCALE_SLANGDISPLAYNAME, langName, _countof(langName)) == 0) {
             // If LOCALE_SLANGDISPLAYNAME fails, try LOCALE_SLANGUAGE
-            GetLocaleInfoW(locale, LOCALE_SLANGUAGE, langName, sizeof(langName));
+            GetLocaleInfoW(locale, LOCALE_SLANGUAGE, langName, _countof(langName));
         }
         // Add the string to the list
         int newIndex = m_comboLangs.AddString(langName);
