@@ -1,5 +1,5 @@
 #ifndef AppVersion
-  #define AppVersion "1.2.0.4"
+  #define AppVersion "2.0.0.0"
 #endif
 #ifndef BuildOutputDir
   #define BuildOutputDir SourcePath + "..\x64\Release"
@@ -8,7 +8,7 @@
   #define VCRedistPath SourcePath + ".cache\vc_redist.x64.exe"
 #endif
 
-#define AppName "Razeru"
+#define AppName "Razeru 2"
 #define AppPublisher "NDR Co"
 #define AppExeName "Razeru.exe"
 #define RepoRoot SourcePath + ".."
@@ -24,9 +24,9 @@ AppSupportURL=https://github.com/ndrco/Razeru/issues
 AppUpdatesURL=https://github.com/ndrco/Razeru/releases
 VersionInfoVersion={#AppVersion}
 VersionInfoCompany={#AppPublisher}
-VersionInfoDescription=Razeru Windows installer
+VersionInfoDescription=Razeru 2 Windows installer
 VersionInfoProductName={#AppName}
-DefaultDirName={localappdata}\Programs\{#AppName}
+DefaultDirName={localappdata}\Programs\Razeru
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
@@ -55,18 +55,16 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
 
 [CustomMessages]
-english.StartupTask=Start Razeru when I sign in
-russian.StartupTask=Запускать Razeru при входе в систему
+english.StartupTask=Start Razeru 2 when I sign in
+russian.StartupTask=Запускать Razeru 2 при входе в систему
 english.StartupGroup=Startup:
 russian.StartupGroup=Автозапуск:
 english.DocumentationShortcut=Documentation
 russian.DocumentationShortcut=Документация
-english.UninstallShortcut=Uninstall Razeru
-russian.UninstallShortcut=Удалить Razeru
+english.UninstallShortcut=Uninstall Razeru 2
+russian.UninstallShortcut=Удалить Razeru 2
 english.RuntimeStatus=Installing Microsoft Visual C++ Runtime...
 russian.RuntimeStatus=Установка среды Microsoft Visual C++...
-english.InstallChroma=Install the required Razer Chroma App, then start Razeru from the Start menu
-russian.InstallChroma=Установить необходимое приложение Razer Chroma, затем запустить Razeru из меню «Пуск»
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
@@ -75,7 +73,6 @@ Name: "startup"; Description: "{cm:StartupTask}"; GroupDescription: "{cm:Startup
 [Files]
 Source: "{#BuildOutputDir}\Razeru.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BuildOutputDir}\RzruUI.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#RepoRoot}\CChromaEditorLibrary64.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#RepoRoot}\config\Razeru.json"; DestDir: "{app}"; Flags: onlyifdoesntexist uninsneveruninstall
 Source: "{#RepoRoot}\Animations\*"; DestDir: "{app}\Animations"; Flags: recursesubdirs createallsubdirs onlyifdoesntexist uninsneveruninstall
 Source: "{#RepoRoot}\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
@@ -84,20 +81,20 @@ Source: "{#VCRedistPath}"; DestDir: "{tmp}"; Flags: deleteafterinstall
 
 [InstallDelete]
 Type: files; Name: "{app}\CChromaEditorLibrary.dll"
+Type: files; Name: "{app}\CChromaEditorLibrary64.dll"
 
 [Icons]
-Name: "{group}\Razeru"; Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"
+Name: "{group}\Razeru 2"; Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"
 Name: "{group}\{cm:DocumentationShortcut}"; Filename: "{app}\docs\README.md"
 Name: "{group}\{cm:UninstallShortcut}"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\Razeru"; Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{autodesktop}\Razeru 2"; Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Registry]
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "Razeru NDR Co"; ValueData: """{app}\{#AppExeName}"""; Flags: uninsdeletevalue; Tasks: startup
 
 [Run]
 Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; StatusMsg: "{cm:RuntimeStatus}"; Flags: waituntilterminated runhidden; Check: VCRuntimeNeedsInstall
-Filename: "https://rzr.to/chroma-download"; Description: "{cm:InstallChroma}"; Flags: shellexec postinstall skipifsilent; Check: ChromaRuntimeNeedsInstall
-Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(AppName, '&', '&&')}}"; WorkingDir: "{app}"; Flags: nowait postinstall skipifsilent unchecked; Check: ChromaRuntimeInstalled
+Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(AppName, '&', '&&')}}"; WorkingDir: "{app}"; Flags: nowait postinstall skipifsilent unchecked
 
 [Code]
 function VCRuntimeNeedsInstall: Boolean;
@@ -111,18 +108,6 @@ begin
     (Installed = 1) and
     (Build >= 35211)
   );
-end;
-
-function ChromaRuntimeInstalled: Boolean;
-begin
-  Result :=
-    FileExists(ExpandConstant('{sys}\RzChromatic64.dll')) or
-    FileExists(ExpandConstant('{sys}\RzChromaSDK64.dll'));
-end;
-
-function ChromaRuntimeNeedsInstall: Boolean;
-begin
-  Result := not ChromaRuntimeInstalled;
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);

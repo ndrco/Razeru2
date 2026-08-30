@@ -12,21 +12,30 @@ the audited SHA-256 are recorded in `third_party/README.md`.
 
 Project: https://github.com/nlohmann/json
 
-## Razer Chroma SDK components
+## Razer Chroma SDK reference material
 
-The Razer API wrapper sources under `Razer/`, associated headers/assets, and
-the bundled `CChromaEditorLibrary32.dll` / `CChromaEditorLibrary64.dll` originate
-from Razer's Chroma SDK materials. The repository's `LICENSE` includes the Razer
-MIT License notice applicable to those imported components.
+The legacy API wrapper sources under `Razer/`, associated headers/assets, and
+the repository copies of `CChromaEditorLibrary32.dll` /
+`CChromaEditorLibrary64.dll` originate from Razer's Chroma SDK materials. The
+repository's `LICENSE` includes the Razer MIT License notice applicable to those
+imported components.
 
 Upstream sample lineage: https://github.com/razerofficial/CSDK_SampleApp
 
-The installer packages only the `CChromaEditorLibrary64.dll` animation bridge
-and verifies its valid Razer USA Ltd. Authenticode signature before compilation.
-The separate Razer Chroma App and its system SDK core are not redistributed.
-Chroma App is the minimum user-installed Razer product. Its vendor-managed App
-Engine, services, and drivers remain external dependencies; Synapse and other
-Razer applications are not required by Razeru.
+Razeru 2 excludes these sources and DLLs from its executable and installer. The
+version-1 `.chroma` reader was independently implemented from the documented
+serialized layout and checked for compatibility with the MIT-licensed editor
+source. No Razer Chroma runtime binary is redistributed by the Razeru 2 setup.
+
+## OpenRazer and OpenRGB protocol references
+
+The direct Huntsman V2 TKL HID implementation was written for this project and
+cross-checked against the public device/protocol research in OpenRazer and
+OpenRGB. Their source code is not vendored into `RazerHidDevice.*`; their own
+copyright and license terms continue to govern the upstream projects.
+
+- OpenRazer: https://github.com/openrazer/openrazer
+- OpenRGB: https://gitlab.com/CalcProgrammer1/OpenRGB
 
 ## Microsoft Visual C++ Redistributable
 

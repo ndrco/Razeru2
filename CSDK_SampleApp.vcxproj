@@ -168,9 +168,6 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;version.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
-    <PostBuildEvent>
-      <Command>IF /I "$(Platform)"=="x64" (COPY /Y "$(ProjectDir)CChromaEditorLibrary64.dll" "$(OutDir)") ELSE (COPY /Y "$(ProjectDir)CChromaEditorLibrary.dll" "$(OutDir)")</Command>
-    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug_NoSignatureCheck|Win32'">
     <ClCompile>
@@ -189,9 +186,6 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;version.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
-    <PostBuildEvent>
-      <Command>IF /I "$(Platform)"=="x64" (COPY /Y "$(ProjectDir)CChromaEditorLibrary64.dll" "$(OutDir)") ELSE (COPY /Y "$(ProjectDir)CChromaEditorLibrary.dll" "$(OutDir)")</Command>
-    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -213,9 +207,6 @@
       <GenerateMapFile>true</GenerateMapFile>
       <MapExports>true</MapExports>
     </Link>
-    <PostBuildEvent>
-      <Command>IF /I "$(Platform)"=="x64" (COPY /Y "$(ProjectDir)CChromaEditorLibrary64.dll" "$(OutDir)") ELSE (COPY /Y "$(ProjectDir)CChromaEditorLibrary.dll" "$(OutDir)")</Command>
-    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug_NoSignatureCheck|x64'">
     <ClCompile>
@@ -234,9 +225,6 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;version.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
-    <PostBuildEvent>
-      <Command>IF /I "$(Platform)"=="x64" (COPY /Y "$(ProjectDir)CChromaEditorLibrary64.dll" "$(OutDir)") ELSE (COPY /Y "$(ProjectDir)CChromaEditorLibrary.dll" "$(OutDir)")</Command>
-    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -262,9 +250,6 @@
       <Command>
       </Command>
     </CustomBuildStep>
-    <PostBuildEvent>
-      <Command>IF /I "$(Platform)"=="x64" (COPY /Y "$(ProjectDir)CChromaEditorLibrary64.dll" "$(OutDir)") ELSE (COPY /Y "$(ProjectDir)CChromaEditorLibrary.dll" "$(OutDir)")</Command>
-    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release_NoSignatureCheck|Win32'">
     <ClCompile>
@@ -291,9 +276,6 @@
       <Command>
       </Command>
     </CustomBuildStep>
-    <PostBuildEvent>
-      <Command>IF /I "$(Platform)"=="x64" (COPY /Y "$(ProjectDir)CChromaEditorLibrary64.dll" "$(OutDir)") ELSE (COPY /Y "$(ProjectDir)CChromaEditorLibrary.dll" "$(OutDir)")</Command>
-    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -317,9 +299,6 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;version.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
-    <PostBuildEvent>
-      <Command>IF /I "$(Platform)"=="x64" (COPY /Y "$(ProjectDir)CChromaEditorLibrary64.dll" "$(OutDir)") ELSE (COPY /Y "$(ProjectDir)CChromaEditorLibrary.dll" "$(OutDir)")</Command>
-    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release_NoSignatureCheck|x64'">
     <ClCompile>
@@ -342,12 +321,16 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;version.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
-    <PostBuildEvent>
-      <Command>IF /I "$(Platform)"=="x64" (COPY /Y "$(ProjectDir)CChromaEditorLibrary64.dll" "$(OutDir)") ELSE (COPY /Y "$(ProjectDir)CChromaEditorLibrary.dll" "$(OutDir)")</Command>
-    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup>
+    <Link>
+      <AdditionalDependencies>hid.lib;setupapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="ChromaFileReader.h" />
     <ClInclude Include="ChromaPlaying.h" />
+    <ClInclude Include="RazerHidDevice.h" />
     <ClInclude Include="RazerKeyboardMapping.h" />
     <ClInclude Include="Razer\ChromaAnimationAPI.h" />
     <ClInclude Include="Razer\ChromaLogger.h" />
@@ -360,13 +343,11 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="ChromaFileReader.cpp" />
     <ClCompile Include="ChromaPlaying.cpp" />
+    <ClCompile Include="RazerHidDevice.cpp" />
     <ClCompile Include="RazerKeyboardMapping.cpp" />
-    <ClCompile Include="Razer\ChromaAnimationAPI.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="Razer\ChromaLogger.cpp" />
-    <ClCompile Include="Razer\ChromaSDKPluginTypes.cpp" />
-    <ClCompile Include="Razer\VerifyLibrarySignature.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Razeru.rc" />

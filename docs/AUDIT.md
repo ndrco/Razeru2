@@ -1,4 +1,9 @@
-# Razeru technical audit
+# Razeru 1 historical technical audit
+
+> Archived baseline: this report describes the pre-Razeru-2 Chroma SDK build.
+> Its Razer runtime requirements and packaging conclusions are superseded by
+> [RAZER_REQUIREMENTS.md](RAZER_REQUIREMENTS.md) and the Razeru 2 development
+> guide. It remains here to document the migration baseline.
 
 Audit date: 2026-08-22  
 Source baseline: `main` at `6ee343a5fe6a4714ea812b36bc28f6bdeff72e81`  

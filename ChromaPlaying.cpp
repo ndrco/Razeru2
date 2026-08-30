@@ -3,110 +3,50 @@
 #include "ChromaPlaying.h"
 #include <tchar.h>
 #include <cmath>
+#include <Shellapi.h>
+
+namespace {
+int MakeColor(int red, int green, int blue) {
+    return (red & 0xFF) | ((green & 0xFF) << 8) | ((blue & 0xFF) << 16);
+}
+
+int LerpColor(int first, int second, float t) {
+    t = (std::max)(0.0f, (std::min)(1.0f, t));
+    const int red = static_cast<int>((first & 0xFF) +
+        (((second & 0xFF) - (first & 0xFF)) * t));
+    const int green = static_cast<int>(((first >> 8) & 0xFF) +
+        ((((second >> 8) & 0xFF) - ((first >> 8) & 0xFF)) * t));
+    const int blue = static_cast<int>(((first >> 16) & 0xFF) +
+        ((((second >> 16) & 0xFF) - ((first >> 16) & 0xFF)) * t));
+    return MakeColor(red, green, blue);
+}
+}
 
 
-
-// API initialization
+// Direct HID initialization
 int ChromaPlaying::InitChroma(HWND hwndMain, UINT changedMessage) {
     
     hwnd = hwndMain;
     messageCh = changedMessage;
 
-    // Attempt to initialize the Chroma Animation API
-    if (ChromaAnimationAPI::InitAPI() != RZRESULT_SUCCESS) {
-        // Return error if the API initialization fails
-        return 1;
+    if (!_keyboard.Open()) {
+        return 101;
     }
-    // Set application metadata
-    ChromaSDK::APPINFOTYPE appInfo = {};
-    _tcscpy_s(appInfo.Title, 256, _T("Razeru"));
-    _tcscpy_s(appInfo.Description, 1024, _T("Razer Chroma Language indicator"));
-    _tcscpy_s(appInfo.Author.Name, 256, _T("NDR company"));
-    _tcscpy_s(appInfo.Author.Contact, 256, _T("ndrco@yahoo.com"));
-    // Supported devices and application category:
-    //appInfo.SupportedDevice = 
-    //    0x01 | // Keyboards
-    //    0x02 | // Mice
-    //    0x04 | // Headset
-    //    0x08 | // Mousepads
-    //    0x10 | // Keypads
-    //    0x20   // ChromaLink devices
-    appInfo.SupportedDevice = (0x01 | 0x02 | 0x04 | 0x08 | 0x10 | 0x20);
-    //    0x01 | // Utility. (To specifiy this is an utility application)
-    //    0x02   // Game. (To specifiy this is a game);
-    appInfo.Category = 1;
-    
-    // Initialize the Chroma SDK with the provided metadata
-    RZRESULT result = ChromaAnimationAPI::InitSDK(&appInfo);
-    if (result) {
-        return result;
-        // RZRESULT_DLL_NOT_FOUND 6023: Chroma DLL is not found
-        // RZRESULT_DLL_INVALID_SIGNATURE 6033: Chroma DLL has an invalid signature!
-        // Other: Failed to initialize Chroma!
+    std::string firmware;
+    if (!_keyboard.QueryFirmware(firmware)) {
+        _keyboard.Close();
+        return 102;
     }
-    Sleep(100); //Allow time for initialization
-
-    // Check for connected devices
-    DEVICE_INFO_TYPE deviceInfo = { DEVICE_INFO_TYPE::DEVICE_ALL };
-    result = ChromaAnimationAPI::CoreIsConnected(deviceInfo);
-
-    if (result == RZRESULT_SUCCESS) {
-#if _DEBUG
-        TCHAR message[50] = { 0 };
-        wsprintf(message, TEXT("RAZER Devices %d\n"),
-            deviceInfo.Connected);
-        OutputDebugString(message);
-#endif //_DEBUG
-        
-        // Check if a keyboard is connected
-        DEVICE_INFO_TYPE keyboardInfo = { DEVICE_INFO_TYPE::DEVICE_KEYBOARD };
-        result = ChromaAnimationAPI::CoreIsConnected(keyboardInfo);
-        if (result != RZRESULT_SUCCESS || keyboardInfo.Connected <= 0)
-            // No keyboard detected
-            return 101;
-
-        // Store connected devices
-        _connectedDevices.clear();
-        if (deviceInfo.Connected > 0) {
-            std::vector<enum DEVICE_INFO_TYPE::DeviceType> deviceTypes = {
-                DEVICE_INFO_TYPE::DEVICE_MOUSE,
-                DEVICE_INFO_TYPE::DEVICE_HEADSET,
-                DEVICE_INFO_TYPE::DEVICE_MOUSEPAD,
-                DEVICE_INFO_TYPE::DEVICE_KEYPAD,
-                DEVICE_INFO_TYPE::DEVICE_CHROMALINK
-            };
-            // Check for each supported device type
-            for (const auto& deviceType : deviceTypes) {
-                DEVICE_INFO_TYPE currentDeviceInfo = { deviceType };
-                result = ChromaAnimationAPI::CoreIsConnected(currentDeviceInfo);
-
-                if (result == RZRESULT_SUCCESS && currentDeviceInfo.Connected > 0) {
-                    _connectedDevices.push_back(currentDeviceInfo);
-                }
-            }
-        }
-    }
-    else {
-        return 100; // No Chroma devices connected
-    }
-    return 0; // Initialization successful
+    _connectedDevices.clear();
+    return 0;
 }
 
 
-// ChromaSDK cleanup
+// Direct HID cleanup
 int ChromaPlaying::Cleanup() {
-
-    RZRESULT result = 0;
-    if (ChromaAnimationAPI::GetIsInitializedAPI()) {
-        if (ChromaAnimationAPI::IsInitialized()) {
-            _ReleaseKeyboardEffect();
-            ChromaAnimationAPI::StopAll();
-            ChromaAnimationAPI::CloseAll();
-            result = ChromaAnimationAPI::Uninit();
-            ChromaAnimationAPI::UninitAPI();
-        }
-    }
-    return result;
+    _ReleaseKeyboardEffect();
+    _keyboard.Close();
+    return 0;
 }
 
 
@@ -238,10 +178,22 @@ void ChromaPlaying::PlayingFrameKeyboard(const std::optional<std::reference_wrap
     auto effect = ChromaPlaying::GetActiveSceneEffect(); // Get the active scene effect
     if (effect) {
 
-        float duration;
-        // Retrieve the current animation frame
-        if (ChromaAnimationAPI::GetFrameName(_memoryAnimationName, effect->frameIndex,
-            &duration, &_tempColorsKeyboard[0], SIZEKEYBOARD, 0, 0) > 0) {
+        bool frameLoaded = false;
+        {
+            std::lock_guard<std::mutex> lock(_animationMutex);
+            if (_activeAnimation.Path() != effect->keyboardAnimation) {
+                _activeAnimation.Load(effect->keyboardAnimation);
+            }
+            if (_activeAnimation.IsLoaded()) {
+                const auto* frame = _activeAnimation.GetFrame(
+                    static_cast<std::size_t>(effect->frameIndex) % _activeAnimation.FrameCount());
+                if (frame != nullptr) {
+                    _tempColorsKeyboard.assign(frame->colors.begin(), frame->colors.end());
+                    frameLoaded = true;
+                }
+            }
+        }
+        if (frameLoaded) {
 
             if (IsColorKeyboardOn()) {
                 // Blend backlight colors with the animation frame
@@ -251,9 +203,8 @@ void ChromaPlaying::PlayingFrameKeyboard(const std::optional<std::reference_wrap
                 // Apply key-specific effects to the animation frame
                 ChromaPlaying::_KeyAnimation(keyStateMap.value(), chromaKeyEffect, _tempColorsKeyboard);
             }
-            // Send the updated frame using the low-level effect path. Recent
-            // Chroma App runtimes accept SetEffectCustom2D but may not retain
-            // its keyboard output, while CoreSetEffect is rendered correctly.
+            // Send the composited frame straight to the keyboard's HID
+            // lighting interface.
             _SetKeyboardFrame(_tempColorsKeyboard);
         }
     }
@@ -276,109 +227,40 @@ void ChromaPlaying::PlayingAutoKeyboard() {
 
 // Stop the automatic keyboard animation
 void ChromaPlaying::StopAutoKeyboard() {
-    auto effect = ChromaPlaying::GetActiveSceneEffect();
-    if (effect) {
-        ChromaAnimationAPI::CloseAnimationName(effect->keyboardAnimation.c_str());
+    {
+        std::lock_guard<std::mutex> lock(_animationMutex);
+        _activeAnimation.Clear();
     }
     _ReleaseKeyboardEffect();
 }
 
 
-// Display a keyboard frame through a retained low-level SDK effect.
+// Display a keyboard frame through the direct HID interface.
 bool ChromaPlaying::_SetKeyboardFrame(const std::vector<int>& colors) {
-    if (colors.size() < SIZEKEYBOARD) {
-        return false;
-    }
-
-    Keyboard::CUSTOM_EFFECT_TYPE keyboardEffect = {};
-    for (RZSIZE row = 0; row < Keyboard::MAX_ROW; ++row) {
-        for (RZSIZE column = 0; column < Keyboard::MAX_COLUMN; ++column) {
-            const size_t index = static_cast<size_t>(row) * Keyboard::MAX_COLUMN + column;
-            keyboardEffect.Color[row][column] = static_cast<COLORREF>(colors[index]);
-        }
-    }
-
-    RZEFFECTID nextEffectId = {};
-    std::lock_guard<std::mutex> lock(_keyboardEffectMutex);
-
-    RZRESULT result = ChromaAnimationAPI::CoreCreateKeyboardEffect(
-        Keyboard::CHROMA_CUSTOM,
-        &keyboardEffect,
-        &nextEffectId);
-    if (result != RZRESULT_SUCCESS) {
-        return false;
-    }
-
-    result = ChromaAnimationAPI::CoreSetEffect(nextEffectId);
-    if (result != RZRESULT_SUCCESS) {
-        ChromaAnimationAPI::CoreDeleteEffect(nextEffectId);
-        return false;
-    }
-
-    if (_hasKeyboardEffect) {
-        ChromaAnimationAPI::CoreDeleteEffect(_keyboardEffectId);
-    }
-    _keyboardEffectId = nextEffectId;
-    _hasKeyboardEffect = true;
-    return true;
+    return _keyboard.SendLogicalFrame(colors);
 }
 
 
-// Release the retained low-level keyboard effect.
+// Return control to a firmware-rendered effect.
 void ChromaPlaying::_ReleaseKeyboardEffect() {
-    std::lock_guard<std::mutex> lock(_keyboardEffectMutex);
-    if (_hasKeyboardEffect) {
-        ChromaAnimationAPI::CoreDeleteEffect(_keyboardEffectId);
-        _keyboardEffectId = RZEFFECTID{};
-        _hasKeyboardEffect = false;
+    if (_keyboard.IsOpen()) {
+        _keyboard.SetSpectrumEffect();
     }
 }
 
 // Automatically play animations for connected other Chroma devices 
 void ChromaPlaying::PlayingAutoDevices() {
-    auto effect = ChromaPlaying::GetActiveSceneEffect();  // Get the active scene effect
-    if (_devicesAnimation && effect) {
-        for (const auto& deviceType : _connectedDevices) {
-            switch (deviceType.DeviceType) {
-            case DEVICE_INFO_TYPE::DEVICE_MOUSE:
-                _RestartAnimation(effect->mouseAnimation, true);
-                break;
-            case DEVICE_INFO_TYPE::DEVICE_HEADSET:
-                _RestartAnimation(effect->headSetAnimation, true);
-                break;
-            case DEVICE_INFO_TYPE::DEVICE_MOUSEPAD:
-                _RestartAnimation(effect->mousePadAnimation, true);
-                break;
-            case DEVICE_INFO_TYPE::DEVICE_KEYPAD:
-                _RestartAnimation(effect->keyPadAnimation, true);
-                break;
-            case DEVICE_INFO_TYPE::DEVICE_CHROMALINK:
-                _RestartAnimation(effect->chromaLinkAnimation, true);
-                break;
-            default:
-                // Unsupported device type (optional: log a warning)
-                break;
-            }
-        }
-    }
+    // Razeru 2 intentionally owns only the keyboard.  Other devices can be
+    // added later as independent HID profiles instead of SDK dependencies.
 }
 
 
 // Launch editor of .chroma files
 int ChromaPlaying::LaunchOpenEditor() {
-
-    const char* testLayer = "Animations/Blank_Keyboard.chroma";
-    // Start with a blank animation
-    _RestartAnimation(testLayer, false);
-    int result = ChromaAnimationAPI::OpenEditorDialog(testLayer);
-    if (result) {
-        return result; // Return any errors
-    }
-    // Wait until the editor dialog is closed
-    while (ChromaAnimationAPI::IsDialogOpen()) {
-        Sleep(100);
-    }
-    return result; // Return the result of the editor operation
+    const HINSTANCE result = ShellExecuteW(
+        hwnd, L"open", L"https://chroma.razer.com/ChromaEditor",
+        nullptr, nullptr, SW_SHOWNORMAL);
+    return reinterpret_cast<INT_PTR>(result) > 32 ? 0 : 1;
 }
 
 
@@ -428,12 +310,6 @@ void ChromaPlaying::SetActiveSceneEffect(const LANGID& activeLayout) {
 
     if (it != chromaKeyboardEffect.end()) {
         _activeSceneEffectIndex = static_cast<int>(std::distance(chromaKeyboardEffect.begin(), it));
-        if (chromaBacklightEffect.backLightOn || chromaKeyEffect.name != EFFECT_TYPE::CHROMA_NONE) {
-            auto effect = ChromaPlaying::GetActiveSceneEffect();
-            if (effect) {
-                ChromaAnimationAPI::CopyAnimationName(effect->keyboardAnimation.c_str(), _memoryAnimationName);
-            }
-        }
     }
     else {
         _activeSceneEffectIndex = -1; // No matching effect found
@@ -579,10 +455,18 @@ void ChromaPlaying::LoadDefaultConfig() {
 // Recalculate animation frame parameters for all keyboard effects
 void ChromaPlaying::SetFramesParameters() {
     for (auto& effect : chromaKeyboardEffect) {
-        const int frameDuration = static_cast<int>(1000 * ChromaAnimationAPI::GetFrameDurationName(effect.keyboardAnimation.c_str(), 0));
-        const int frameCount = ChromaAnimationAPI::GetFrameCountName(effect.keyboardAnimation.c_str());
-        effect.frameDuration = (std::max)(1, frameDuration);
-        effect.frames = (std::max)(1, frameCount);
+        ChromaFileReader animation;
+        if (animation.Load(effect.keyboardAnimation)) {
+            const auto* firstFrame = animation.GetFrame(0);
+            const int frameDuration = firstFrame == nullptr ? 33 :
+                static_cast<int>(1000.0f * firstFrame->durationSeconds);
+            effect.frameDuration = (std::max)(1, frameDuration);
+            effect.frames = static_cast<int>(animation.FrameCount());
+        }
+        else {
+            effect.frameDuration = 33;
+            effect.frames = 1;
+        }
         effect.frameIndex = (std::max)(0, effect.frameIndex % effect.frames);
     }
 }
@@ -593,13 +477,29 @@ void ChromaPlaying::SetFramesParameters() {
 
 // Set color for RZKEY
 void ChromaPlaying::_SetKeyColor(std::vector<int>& colors, const int row, const int column, const int color) {
-    colors[Keyboard::MAX_COLUMN * row + column] = color;
+    if (row < 0 || column < 0 ||
+        row >= static_cast<int>(ChromaFileReader::Rows) ||
+        column >= static_cast<int>(ChromaFileReader::Columns)) {
+        return;
+    }
+    const std::size_t index = ChromaFileReader::Columns *
+        static_cast<std::size_t>(row) + static_cast<std::size_t>(column);
+    if (index < colors.size()) {
+        colors[index] = color;
+    }
 }
 
 
 // Get color for RZKEY
 int ChromaPlaying::_GetKeyColor(const std::vector<int>& colors, const int row, const int column) {
-    return colors[Keyboard::MAX_COLUMN * row + column];
+    if (row < 0 || column < 0 ||
+        row >= static_cast<int>(ChromaFileReader::Rows) ||
+        column >= static_cast<int>(ChromaFileReader::Columns)) {
+        return 0;
+    }
+    const std::size_t index = ChromaFileReader::Columns *
+        static_cast<std::size_t>(row) + static_cast<std::size_t>(column);
+    return index < colors.size() ? colors[index] : 0;
 }
 
 
@@ -614,9 +514,10 @@ void ChromaPlaying::_AddZeroElementsToVector(std::vector<int>& vec) {
 
 // Restart an animation by closing and replaying it
 void ChromaPlaying::_RestartAnimation(const std::string& animationName, const bool loop) {
-    ChromaAnimationAPI::CloseAnimationName(animationName.c_str());
-    if (ChromaAnimationAPI::GetAnimation(animationName.c_str()) > 0) {
-        ChromaAnimationAPI::PlayAnimationName(animationName.c_str(), loop);
+    (void)loop;
+    std::lock_guard<std::mutex> lock(_animationMutex);
+    if (_activeAnimation.Path() != animationName) {
+        _activeAnimation.Load(animationName);
     }
 }
 
@@ -640,7 +541,7 @@ void ChromaPlaying::_BlendAnimation(const std::vector<int>& colors, std::vector<
             break;
         case EChromaSDKSceneBlend::SB_Lerp: // Linear interpolation
         default:
-            color2 = ChromaAnimationAPI::LerpColor(color1, tempColor, 0.5);
+            color2 = LerpColor(color1, tempColor, 0.5f);
             break;
         }
 
@@ -722,8 +623,8 @@ void ChromaPlaying::_Wave(std::vector<int>& tempColors, const int row, const int
     const int MAX_RADIUS = 10; // Maximum propagation radius
     const double initialAmplitude = 1;
 
-    for (int r = 0; r < Keyboard::MAX_ROW; ++r) {
-        for (int c = 0; c < Keyboard::MAX_COLUMN; ++c) {
+    for (int r = 0; r < static_cast<int>(ChromaFileReader::Rows); ++r) {
+        for (int c = 0; c < static_cast<int>(ChromaFileReader::Columns); ++c) {
             // Calculate Manhattan distance
             int distance = abs(r - row) + abs(c - col);
 
@@ -751,7 +652,7 @@ void ChromaPlaying::_Wave(std::vector<int>& tempColors, const int row, const int
 // Linearly interpolate the key color in the frame
 void ChromaPlaying::_SetLerpKeyColorToVector(std::vector<int>& tempColors, const int row, const int col, const double t, int color) {
     int effectKeyColor = ChromaPlaying::_GetKeyColor(tempColors, row, col);
-    int currentColor = ChromaAnimationAPI::LerpColor(effectKeyColor, color, static_cast<float>(t));
+    int currentColor = LerpColor(effectKeyColor, color, static_cast<float>(t));
     ChromaPlaying::_SetKeyColor(tempColors, row, col, currentColor);
 }
 
@@ -762,7 +663,7 @@ int ChromaPlaying::_InvertColor(const int color) {
     int green = 255 - ((color >> 8) & 0xFF);
     int blue = 255 - ((color >> 16) & 0xFF);
 
-    return ChromaAnimationAPI::GetRGB(red, green, blue);
+    return MakeColor(red, green, blue);
 }
 
 
@@ -780,7 +681,7 @@ int ChromaPlaying::_MaxColor(const int color1, const int color2) {
     int green = max(greenColor1, greenColor2) & 0xFF;
     int blue = max(blueColor1, blueColor2) & 0xFF;
 
-    return ChromaAnimationAPI::GetRGB(red, green, blue);
+    return MakeColor(red, green, blue);
 }
 
 // Calculate the minimum of two colors (per channel)
@@ -797,13 +698,13 @@ int ChromaPlaying::_MinColor(const int color1, const int color2) {
     int green = min(greenColor1, greenColor2) & 0xFF;
     int blue = min(blueColor1, blueColor2) & 0xFF;
 
-    return ChromaAnimationAPI::GetRGB(red, green, blue);
+    return MakeColor(red, green, blue);
 }
 
 
 // Average from two colors (per channel)
 int ChromaPlaying::_AverageColor(const int color1, const int color2) {
-    return ChromaAnimationAPI::LerpColor(color1, color2, 0.5f);
+    return LerpColor(color1, color2, 0.5f);
 }
 
 
@@ -821,7 +722,7 @@ int ChromaPlaying::_MultiplyColor(const int color1, const int color2) {
     int green = (int)floor(255 * ((greenColor1 / 255.0f) * (greenColor2 / 255.0f)));
     int blue = (int)floor(255 * ((blueColor1 / 255.0f) * (blueColor2 / 255.0f)));
 
-    return ChromaAnimationAPI::GetRGB(red, green, blue);
+    return MakeColor(red, green, blue);
 }
 
 // Add two colors (per channel) with clamping
@@ -838,7 +739,7 @@ int ChromaPlaying::_AddColor(const int color1, const int color2) {
     int green = min(greenColor1 + greenColor2, 255) & 0xFF;
     int blue = min(blueColor1 + blueColor2, 255) & 0xFF;
 
-    return ChromaAnimationAPI::GetRGB(red, green, blue);
+    return MakeColor(red, green, blue);
 }
 
 
@@ -856,7 +757,7 @@ int ChromaPlaying::_SubtractColor(const int color1, const int color2) {
     int green = max(greenColor1 - greenColor2, 0) & 0xFF;
     int blue = max(blueColor1 - blueColor2, 0) & 0xFF;
 
-    return ChromaAnimationAPI::GetRGB(red, green, blue);
+    return MakeColor(red, green, blue);
 }
 
 

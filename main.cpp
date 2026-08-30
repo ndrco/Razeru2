@@ -1,11 +1,11 @@
 ﻿/*
 ================================================================================
-Razer Keyboard Layout Indicator and Event Handler
+Razeru 2 Keyboard Layout Indicator and Event Handler
 
 Description:
 This program is designed to monitor and handle keyboard layout changes and key
-press events, integrating with the Razer Chroma API to provide visual feedback
-on supported devices. It manages keyboard animations, key states, and interacts
+press events and provide visual feedback through the keyboard's standard HID
+interface. It manages keyboard animations, key states, and interacts
 with the system tray for user control. The application also includes features
 to respond to session changes (lock/unlock), configuration updates, and provides
 a mechanism for launching a Chroma configuration editor.
@@ -13,7 +13,7 @@ a mechanism for launching a Chroma configuration editor.
 Key Features:
 - Monitors active keyboard layout and triggers corresponding visual effects.
 - Handles key press events, maintaining a buffer of pressed keys with durations.
-- Integrates with Razer Chroma API for visual feedback and animations.
+- Sends validated volatile HID lighting reports to a Huntsman V2 TKL.
 - Provides system tray functionality for user interaction.
 - Responds to session changes (e.g., Windows lock/unlock).
 - Supports a configuration update mechanism via custom Windows messages.
@@ -21,18 +21,18 @@ Key Features:
 
 Dependencies:
 - Windows API (Win32)
-- Razer Chroma SDK
+- Windows HID and SetupAPI
 - Standard libraries: thread, mutex, condition_variable, etc.
 
 Build Requirements:
 - Microsoft Visual Studio or compatible compiler.
-- Linked libraries: dwmapi.lib, wtsapi32.lib.
+- Linked libraries: hid.lib, setupapi.lib, dwmapi.lib, wtsapi32.lib.
 
 Author:
 [NDR Co]
 
 License:
-[GNU General Public License 2025]
+[GNU General Public License 2025-2026]
 
 ================================================================================
 */
@@ -75,7 +75,7 @@ HWND hwndMain{ NULL };
 // Keyboard hook
 HHOOK hHook{ NULL };
 
-// For working with Razer Chroma API
+// Animation compositor and direct keyboard transport
 ChromaPlaying chroma;
 
 // Queue for key states
@@ -321,22 +321,19 @@ int InitChromaHandlers() {
     case 0:
         break; // Initialization successful
     case 1:
-        message = TEXT("Failed to load the Razeru Chroma bridge. Repair Razeru and the Microsoft Visual C++ Runtime.");
+        message = TEXT("Failed to initialize the Razeru 2 HID transport.");
         break;
     case 100:
-        message = TEXT("No Chroma devices are connected. Connect a supported device and verify it in Razer Chroma App.");
+        message = TEXT("No supported direct-HID devices are connected.");
         break;
     case 101:
-        message = TEXT("A Chroma keyboard is not connected. Check the USB connection and verify the keyboard in Razer Chroma App.");
+        message = TEXT("Razer Huntsman V2 Tenkeyless (1532:026B) was not found. Check its USB connection.");
         break;
-    case 6023:
-        message = TEXT("The Razer Chroma SDK runtime is missing. Install and start the Razer Chroma App, enable Chroma Apps, and restart Razeru.\n\nhttps://www.razer.com/chroma");
-        break;
-    case 6033:
-        message = TEXT("The Razer Chroma DLL has an invalid signature!");
+    case 102:
+        message = TEXT("The keyboard HID interface opened, but the device did not answer the firmware probe.");
         break;
     default:
-        message = TEXT("Failed to initialize Razer Chroma!");
+        message = TEXT("Failed to initialize direct keyboard control.");
     }
     if (err) {
         MessageBox(NULL, message, TEXT("Error"), MB_ICONERROR);
@@ -413,7 +410,6 @@ void StartEditor() {
     
     pauseAll(); // Pause all ongoing activities
     chroma.LaunchOpenEditor(); // Launch the editor
-    InitChromaHandlers(); // Reinitialize Chroma handlers
     startAll(); // Restart all activities
 }
 
@@ -489,12 +485,12 @@ int SetupMainWindow() {
     WNDCLASS wc = { 0 };
     wc.lpfnWndProc = WindowProc; // Set the window procedure
     wc.hInstance = hInst;
-    wc.lpszClassName = TEXT("Razeru");
+    wc.lpszClassName = TEXT("Razeru2");
     if (!RegisterClass(&wc)) {
         return -1; // Error during registration
     }
     // Create the main hidden window
-    hwndMain = CreateWindow(TEXT("Razeru"), TEXT("Razer Lang indicator"), 0, 0, 0, 0, 0, NULL, NULL, hInst, NULL);
+    hwndMain = CreateWindow(TEXT("Razeru2"), TEXT("Razeru 2 Lang indicator"), 0, 0, 0, 0, 0, NULL, NULL, hInst, NULL);
     if (!hwndMain) {
         return -1; // Error during window creation
     }
@@ -541,7 +537,7 @@ int SetupMenu() {
     if (!nid.hIcon) {
         return -1; // Error loading icon
     }
-    lstrcpy(nid.szTip, TEXT("Razeru Lang indicator")); // Set the tray icon tooltip
+    lstrcpy(nid.szTip, TEXT("Razeru 2 Lang indicator")); // Set the tray icon tooltip
 
     if (!Shell_NotifyIcon(NIM_ADD, &nid)) {
         return -1; // Error adding tray icon

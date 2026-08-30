@@ -1,7 +1,6 @@
-// Description: This header file defines the ChromaPlaying class, which provides methods for interacting
-// with the Razer Chroma SDK. It includes functionalities for initializing, cleaning up, and animating Razer devices
-// such as keyboards, mice, and other peripherals. The class supports manual and automatic animations,
-// key-specific effects, and blending modes for creating custom lighting effects.
+// Description: animation, keyboard-layout and overlay engine for Razeru 2.
+// Hardware output is provided by a direct user-mode HID transport and does not
+// require Razer Chroma software or services.
 
 
 #pragma once
@@ -12,6 +11,8 @@
 
 #include <optional>
 #include <mutex>
+#include "ChromaFileReader.h"
+#include "RazerHidDevice.h"
 #include "Razer/ChromaAnimationAPI.h"
 
 
@@ -29,8 +30,8 @@ public:
 
     //System language
     LANGID g_currentLang = MAKELANGID(LANG_ENGLISH, SUBLANG_DEFAULT);
-    // Size of the keyboard array
-    static const int SIZEKEYBOARD{ ChromaSDK::Keyboard::MAX_ROW * ChromaSDK::Keyboard::MAX_COLUMN };
+    // Chroma keyboard animations use a device-independent 6x22 matrix.
+    static const int SIZEKEYBOARD{ static_cast<int>(ChromaFileReader::ColorCount) };
     
     // Key animation data
     struct ChromaKeyEffect {
@@ -108,10 +109,10 @@ public:
     typedef void (*SetConfigFunc)(ConfigData*);
     typedef void (*SignalResponseReadyFunc)();
     
-    // Initialize the Chroma API with the provided window handle and message for configuration updates
+    // Open the keyboard's standard Windows HID lighting interface.
     int InitChroma(HWND hwndMain, UINT changedMessage);
 
-    // Clean up and release resources used by the Chroma SDK
+    // Restore a hardware lighting effect and release the HID handle.
     int Cleanup();
     
     // Launch settings dialog using RzruUI.dll
@@ -136,7 +137,7 @@ public:
     // Stop the automatic keyboard animation
     void StopAutoKeyboard();
 
-    // Automatically play animations for connected other Chroma devices 
+    // Kept for configuration compatibility; Razeru 2 controls the keyboard only.
     void PlayingAutoDevices();
 
     // Launch editor of .chroma files
@@ -182,11 +183,10 @@ public:
     private:
 
     int _activeSceneEffectIndex{ -1 }; // Active keyboard animation index
-    const char* _memoryAnimationName{ "Act" }; // Name of the active keyboard animation storied in the memory
     std::vector<int> _tempColorsKeyboard; // Temporary array for processing keyboard effects
-    RZEFFECTID _keyboardEffectId{}; // Currently displayed low-level keyboard effect
-    bool _hasKeyboardEffect{ false };
-    std::mutex _keyboardEffectMutex;
+    RazerHidDevice _keyboard;
+    ChromaFileReader _activeAnimation;
+    std::mutex _animationMutex;
     bool _devicesAnimation{ true }; //Flag for enabling Razer device animation (except keyboard)
     std::vector<DEVICE_INFO_TYPE> _connectedDevices; // List of connected Razer devices (except keyboard)
 
@@ -205,10 +205,10 @@ public:
     // Animation restart
     void _RestartAnimation(const std::string& animationName, const bool loop);
 
-    // Display a keyboard frame through the low-level SDK effect path.
+    // Display a keyboard frame through the direct HID transport.
     bool _SetKeyboardFrame(const std::vector<int>& colors);
 
-    // Delete the low-level keyboard effect retained by the SDK.
+    // Restore the keyboard's firmware spectrum effect.
     void _ReleaseKeyboardEffect();
 
     // Blend the current frame `tempColors` of the active animation `effect`

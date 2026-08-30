@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$AppVersion = '1.2.0.4',
+    [string]$AppVersion = '2.0.0.0',
     [switch]$SkipBuild,
     [string]$SignToolName = ''
 )
@@ -20,7 +20,6 @@ $buildOutput = Join-Path $repoRoot 'x64\Release'
 $requiredFiles = @(
     (Join-Path $buildOutput 'Razeru.exe'),
     (Join-Path $buildOutput 'RzruUI.dll'),
-    (Join-Path $repoRoot 'CChromaEditorLibrary64.dll'),
     (Join-Path $repoRoot 'config\Razeru.json')
 )
 foreach ($file in $requiredFiles) {
@@ -43,11 +42,6 @@ if ($actualRedistHash -ne $redistSha256) {
 $redistSignature = Get-AuthenticodeSignature -LiteralPath $redistPath
 if ($redistSignature.Status -ne 'Valid' -or $redistSignature.SignerCertificate.Subject -notlike '*Microsoft Corporation*') {
     throw 'The Microsoft VC++ Redistributable signature is not valid.'
-}
-
-$razerSignature = Get-AuthenticodeSignature -LiteralPath (Join-Path $repoRoot 'CChromaEditorLibrary64.dll')
-if ($razerSignature.Status -ne 'Valid' -or $razerSignature.SignerCertificate.Subject -notlike '*Razer USA Ltd.*') {
-    throw 'The Razer Chroma runtime signature is not valid.'
 }
 
 $isccCandidates = @(
