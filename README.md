@@ -59,6 +59,8 @@ Build the per-user Windows installer with:
 - [Russian development guide](docs/DEVELOPMENT.ru.md)
 - [Razer software requirements and removal](docs/RAZER_REQUIREMENTS.md)
 - [ПО Razer: требования и удаление](docs/RAZER_REQUIREMENTS.ru.md)
+- [Razeru 2.0.0.0 release notes](docs/RELEASE_NOTES_2.0.0.md)
+- [Описание выпуска 2.0.0.0](docs/RELEASE_NOTES_2.0.0.ru.md)
 - [Third-party notices](THIRD_PARTY_NOTICES.md)
 
 ## License

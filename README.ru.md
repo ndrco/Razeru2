@@ -61,6 +61,8 @@ English documentation: [README.md](README.md)
 - [Development guide in English](docs/DEVELOPMENT.md)
 - [ПО Razer: требования и удаление](docs/RAZER_REQUIREMENTS.ru.md)
 - [Razer software requirements and removal](docs/RAZER_REQUIREMENTS.md)
+- [Описание выпуска 2.0.0.0](docs/RELEASE_NOTES_2.0.0.ru.md)
+- [Razeru 2.0.0.0 release notes](docs/RELEASE_NOTES_2.0.0.md)
 - [Уведомления о сторонних компонентах](THIRD_PARTY_NOTICES.md)
 
 ## Лицензия

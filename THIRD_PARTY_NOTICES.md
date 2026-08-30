@@ -14,18 +14,19 @@ Project: https://github.com/nlohmann/json
 
 ## Razer Chroma SDK reference material
 
-The legacy API wrapper sources under `Razer/`, associated headers/assets, and
-the repository copies of `CChromaEditorLibrary32.dll` /
-`CChromaEditorLibrary64.dll` originate from Razer's Chroma SDK materials. The
-repository's `LICENSE` includes the Razer MIT License notice applicable to those
-imported components.
+The legacy API wrapper sources under `Razer/` and their associated
+headers/assets originate from Razer's Chroma SDK materials. The repository's
+`LICENSE` includes the Razer MIT License notice applicable to those imported
+components. The obsolete `CChromaEditorLibrary*.dll` copies were removed from
+the Razeru 2 release branch.
 
 Upstream sample lineage: https://github.com/razerofficial/CSDK_SampleApp
 
-Razeru 2 excludes these sources and DLLs from its executable and installer. The
+Razeru 2 excludes the legacy sources from its executable and installer. The
 version-1 `.chroma` reader was independently implemented from the documented
 serialized layout and checked for compatibility with the MIT-licensed editor
-source. No Razer Chroma runtime binary is redistributed by the Razeru 2 setup.
+source. No Razer Chroma runtime binary is stored or redistributed by the
+Razeru 2 release.
 
 ## OpenRazer and OpenRGB protocol references
 

@@ -43,6 +43,14 @@ validate the new transport in this order:
 7. Only after this service-free test succeeds, uninstall Razer products using
    their registered uninstallers and reboot again.
 
+Razer's official clean-install procedure recommends uninstalling all selected
+Razer applications first, removing the documented residual Razer folders, and
+then restarting Windows:
+<https://mysupport.razer.com/app/answers/detail/a_id/1708>. If vendor driver
+packages remain after that process, use Razer's signed Driver Clean-up Tool or
+identify and remove only the exact published INF packages:
+<https://mysupport.razer.com/app/answers/detail/a_id/20339>.
+
 The system may currently show a composite path with `RZCONTROL`/`RzCommon` and
 a virtual `RzDev_026b` device. Those are Razer additions, not requirements of
 Razeru 2. After uninstall and reboot, the physical keyboard should still expose

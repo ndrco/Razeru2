@@ -76,12 +76,13 @@ Source: "{#BuildOutputDir}\RzruUI.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#RepoRoot}\config\Razeru.json"; DestDir: "{app}"; Flags: onlyifdoesntexist uninsneveruninstall
 Source: "{#RepoRoot}\Animations\*"; DestDir: "{app}\Animations"; Flags: recursesubdirs createallsubdirs onlyifdoesntexist uninsneveruninstall
 Source: "{#RepoRoot}\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
-Source: "{#RepoRoot}\docs\*"; DestDir: "{app}\docs"; Flags: recursesubdirs createallsubdirs ignoreversion
+Source: "{#RepoRoot}\docs\*"; DestDir: "{app}\docs"; Excludes: "RELEASE_NOTES_*"; Flags: recursesubdirs createallsubdirs ignoreversion
 Source: "{#VCRedistPath}"; DestDir: "{tmp}"; Flags: deleteafterinstall
 
 [InstallDelete]
 Type: files; Name: "{app}\CChromaEditorLibrary.dll"
 Type: files; Name: "{app}\CChromaEditorLibrary64.dll"
+Type: files; Name: "{app}\docs\RELEASE_NOTES_*"
 
 [Icons]
 Name: "{group}\Razeru 2"; Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"
