@@ -38,6 +38,18 @@ int ChromaPlaying::InitChroma(HWND hwndMain, UINT changedMessage) {
         return 102;
     }
     _connectedDevices.clear();
+    if (_mouse.Open()) {
+        std::string mouseFirmware;
+        if (_mouse.QueryFirmware(mouseFirmware)) {
+            DEVICE_INFO_TYPE mouseInfo{};
+            mouseInfo.DeviceType = DEVICE_INFO_TYPE::DEVICE_MOUSE;
+            mouseInfo.Connected = 1;
+            _connectedDevices.push_back(mouseInfo);
+        }
+        else {
+            _mouse.Close();
+        }
+    }
     return 0;
 }
 
@@ -46,6 +58,10 @@ int ChromaPlaying::InitChroma(HWND hwndMain, UINT changedMessage) {
 int ChromaPlaying::Cleanup() {
     _ReleaseKeyboardEffect();
     _keyboard.Close();
+    if (_mouse.IsOpen()) {
+        _mouse.SetSpectrumEffect();
+        _mouse.Close();
+    }
     return 0;
 }
 
@@ -207,6 +223,9 @@ void ChromaPlaying::PlayingFrameKeyboard(const std::optional<std::reference_wrap
             // lighting interface.
             _SetKeyboardFrame(_tempColorsKeyboard);
         }
+        if (nextframe) {
+            _SetMouseFrame(*effect);
+        }
     }
 }
 
@@ -248,10 +267,54 @@ void ChromaPlaying::_ReleaseKeyboardEffect() {
     }
 }
 
-// Automatically play animations for connected other Chroma devices 
+// Switch the mouse animation immediately when the active layout changes.
 void ChromaPlaying::PlayingAutoDevices() {
-    // Razeru 2 intentionally owns only the keyboard.  Other devices can be
-    // added later as independent HID profiles instead of SDK dependencies.
+    const auto* effect = GetActiveSceneEffect();
+    if (!_devicesAnimation || effect == nullptr || !_mouse.IsOpen()) {
+        {
+            std::lock_guard<std::mutex> lock(_animationMutex);
+            _activeMouseAnimation.Clear();
+        }
+        if (_mouse.IsOpen()) {
+            _mouse.SetSpectrumEffect();
+        }
+        return;
+    }
+    _SetMouseFrame(*effect);
+}
+
+
+bool ChromaPlaying::_SetMouseFrame(const ChromaKeyboardEffect& effect) {
+    if (!_devicesAnimation || !_mouse.IsOpen() || effect.mouseAnimation.empty()) {
+        return false;
+    }
+
+    int color = 0;
+    bool frameLoaded = false;
+    {
+        std::lock_guard<std::mutex> lock(_animationMutex);
+        if (_activeMouseAnimation.Path() != effect.mouseAnimation) {
+            _activeMouseAnimation.Load(effect.mouseAnimation);
+        }
+        if (_activeMouseAnimation.IsLoaded()) {
+            const auto* frame = _activeMouseAnimation.GetFrame(
+                static_cast<std::size_t>(effect.frameIndex) %
+                _activeMouseAnimation.FrameCount());
+            if (frame != nullptr) {
+                color = frame->logoColor;
+                frameLoaded = true;
+            }
+        }
+    }
+    if (!frameLoaded) {
+        return false;
+    }
+
+    // Chroma files store Windows COLORREF values (0x00BBGGRR).
+    return _mouse.SetStaticColor(
+        static_cast<std::uint8_t>(color & 0xFF),
+        static_cast<std::uint8_t>((color >> 8) & 0xFF),
+        static_cast<std::uint8_t>((color >> 16) & 0xFF));
 }
 
 
@@ -375,6 +438,11 @@ void ChromaPlaying::SetConfig(const ConfigData& configData) {
 
     _activeSceneEffectIndex = -1; // Reset the active scene effect index
     _tempColorsKeyboard.clear(); // Clear temporary color data
+    {
+        std::lock_guard<std::mutex> lock(_animationMutex);
+        _activeAnimation.Clear();
+        _activeMouseAnimation.Clear();
+    }
 
     // Prepare color buffers if effects are active
     if (IsColorKeyboardOn() || (chromaKeyEffect.name != EFFECT_TYPE::CHROMA_NONE)) {

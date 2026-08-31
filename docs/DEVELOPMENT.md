@@ -7,6 +7,7 @@
 | `main.cpp` | Hidden window, tray icon, layout polling and keyboard hook |
 | `ChromaPlaying.*` | Animation timing, overlays and application lifecycle |
 | `ChromaFileReader.*` | Bounds-checked version-1 `.chroma` keyboard reader |
+| `ChromaMouseFileReader.*` | Bounds-checked Mouse 9x7/logo-cell reader |
 | `RazerHidDevice.*` | SetupAPI discovery and Razer HID feature reports |
 | `RzruUI/` | MFC settings DLL and `Razeru.json` editing |
 | `tools/RazeruHidTest.cpp` | Standalone read/write diagnostic utility |
@@ -20,22 +21,29 @@ Razeru 2 build.
 
 ## HID profile
 
-`RazerHidDevice` enumerates the HID class and accepts only:
+`RazerHidDevice` enumerates the HID class and accepts two exact profiles:
 
-- vendor `0x1532`, product `0x026B`;
-- composite interface `MI_03`;
-- usage page `0x000C`, usage `0x0001`.
+- Huntsman V2 TKL: `1532:026B`, `MI_03`, usage `000C:0001`;
+- Viper: `1532:0078`, `MI_00`, usage `0001:0002`.
 
 The 91-byte Windows feature buffer contains a report ID followed by the 90-byte
 Razer report. Razeru validates response status, remaining packets, command class
 and command ID, and calculates the XOR checksum over payload bytes 3 through
-88. Firmware queries use transaction ID `0x3F` with a read-only `0x1F`
-fallback. Lighting uses transaction ID `0x3F` and volatile storage mode.
+88. Firmware queries use transaction IDs `0x3F`/`0x1F` for the keyboard and
+`0xFF`/`0x3F` for the Viper. Lighting uses transaction ID `0x3F` and volatile
+storage mode.
 
 Custom frames are converted from the logical 6x22 matrix to the tested 6x17
 Huntsman V2 TKL hardware matrix. Logical columns 1-17 map to hardware columns
 0-16 because column zero is padding in the Chroma grid. Rows are sent before
 enabling custom mode. Cleanup restores the firmware spectrum effect.
+
+The Viper has one lighting element, its logo. Razeru takes Chroma Mouse 9x7
+coordinate `(7,3)` and sends it with extended static command `0F:02` for
+`LOGO_LED=0x04` and `NOSTORE=0x00`. No frame is written to onboard profile
+storage. Windows protects the top-level mouse collection from generic
+read/write access, so the handle is opened without those flags while
+`HidD_SetFeature`/`HidD_GetFeature` remain available.
 
 ## Animation compatibility
 
@@ -45,6 +53,8 @@ read. It supports standard Keyboard 6x22 and Keyboard Extended 8x24. For the
 extended format it intentionally reproduces Razeru 1's
 `PluginGetFrameName(..., length=132)` behavior: the first 132 row-major colors
 are used and the rest are discarded.
+Mouse 9x7 files receive the same structural checks; only the logo cell is kept
+for each Viper frame.
 
 ## Build and tests
 
@@ -64,8 +74,8 @@ hardware tests. Hardware commands are temporary and should finish by restoring
 A release gate should include:
 
 1. clean Release x64 build and dependency inspection;
-2. all bundled keyboard animations accepted and malformed input rejected;
-3. firmware query plus red/green/blue/custom/spectrum device tests;
+2. all bundled keyboard and mouse animations accepted and malformed input rejected;
+3. firmware query and color tests on both the keyboard and Viper;
 4. layout changes, overlays, settings reload, lock/unlock and exit on hardware;
 5. a run with Razer services stopped and then with Razer software absent;
 6. installer build and upgrade from Razeru 1, confirming removal of stale

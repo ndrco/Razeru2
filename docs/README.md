@@ -2,8 +2,9 @@
 
 Razeru 2 watches the input language of the foreground Windows application and
 renders the configured `.chroma` keyboard animation directly on a Razer
-Huntsman V2 Tenkeyless. Static language highlights and reactive key effects can
-be blended over the animation.
+Huntsman V2 Tenkeyless. With a Razer Viper connected, its logo synchronously
+renders the logo cell from the configured mouse animation. Static language
+highlights and reactive key effects can be blended over the keyboard animation.
 
 Razeru does not record typed text. The low-level keyboard hook observes key
 events only to render the configured reactive effect.
@@ -39,16 +40,19 @@ Keyboard Extended files already bundled with Razeru are accepted.
 
 ## Current hardware scope
 
-Razeru 2.0 supports one tested profile: Razer Huntsman V2 Tenkeyless USB
+Razeru 2.0 supports Razer Huntsman V2 Tenkeyless USB
 `VID_1532&PID_026B`, HID interface `MI_03`, hardware matrix 6x17. Chroma's
-logical columns 1-17 map to device columns 0-16. Mouse, mouse pad, headset, keypad,
-Chroma Link, wireless variants, and other keyboard product IDs are not sent
-lighting commands even if their older configuration fields remain visible.
+logical columns 1-17 map to device columns 0-16. The second tested profile is
+the Razer Viper `VID_1532&PID_0078`, interface `MI_00`; its logo color comes
+from Chroma Mouse 9x7 coordinate `(7,3)`. Mouse pads, headsets, keypads, Chroma
+Link, wireless variants, and other product IDs are not sent lighting commands.
 
 ## Troubleshooting
 
 - **Keyboard not found:** reconnect the keyboard directly, confirm the USB ID
   in Device Manager, and verify that `HidUsb` is active on interface `MI_03`.
+- **Mouse does not change color:** verify `1532:0078`, interface `MI_00`, the
+  device-animation setting, and both layout-specific `*_Mouse.chroma` paths.
 - **Keyboard found but does not answer:** exit other lighting applications and
   retry. They can compete for the same feature-report channel.
 - **Colors alternate or appear chaotic:** do not run Razer App Engine, Chroma

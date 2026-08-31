@@ -12,17 +12,36 @@
 #include <thread>
 
 namespace {
-constexpr USHORT TargetUsagePage = 0x000C;
-constexpr USHORT TargetUsage = 0x0001;
-constexpr wchar_t TargetInterfaceToken[] = L"&mi_03";
 constexpr std::chrono::milliseconds ReportDelay{ 1 };
 constexpr std::chrono::milliseconds ResponseDelay{ 5 };
+
+struct ProfileSpec {
+    std::uint16_t productId;
+    USHORT usagePage;
+    USHORT usage;
+    const wchar_t* interfaceToken;
+    const wchar_t* description;
+};
+
+ProfileSpec GetProfileSpec(RazerHidDevice::Profile profile) {
+    switch (profile) {
+    case RazerHidDevice::Profile::Viper:
+        return { RazerHidDevice::ViperProductId, 0x0001, 0x0002,
+            L"&mi_00", L"Razer Viper HID interface 0" };
+    case RazerHidDevice::Profile::HuntsmanV2Tkl:
+    default:
+        return { RazerHidDevice::HuntsmanV2TklProductId, 0x000C, 0x0001,
+            L"&mi_03", L"Razer Huntsman V2 TKL HID interface 3" };
+    }
+}
 
 std::wstring Lowercase(std::wstring value) {
     std::transform(value.begin(), value.end(), value.begin(), towlower);
     return value;
 }
 }
+
+RazerHidDevice::RazerHidDevice(Profile profile) : _profile(profile) {}
 
 RazerHidDevice::~RazerHidDevice() {
     Close();
@@ -57,6 +76,7 @@ bool RazerHidDevice::OpenUnlocked() {
         return false;
     }
 
+    const ProfileSpec spec = GetProfileSpec(_profile);
     bool found = false;
     for (DWORD index = 0;; ++index) {
         SP_DEVICE_INTERFACE_DATA interfaceData{};
@@ -85,13 +105,21 @@ bool RazerHidDevice::OpenUnlocked() {
 
         const std::wstring path = detail->DevicePath;
         const std::wstring lowerPath = Lowercase(path);
-        if (lowerPath.find(TargetInterfaceToken) == std::wstring::npos) {
+        if (lowerPath.find(spec.interfaceToken) == std::wstring::npos) {
             continue;
         }
 
         HANDLE candidate = CreateFileW(
             path.c_str(), GENERIC_READ | GENERIC_WRITE,
             FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+        if (candidate == INVALID_HANDLE_VALUE && _profile == Profile::Viper) {
+            // Windows protects top-level mouse collections from raw reads and
+            // writes. A metadata handle can still expose supported feature
+            // reports on systems whose HID stack permits them.
+            candidate = CreateFileW(
+                path.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                nullptr, OPEN_EXISTING, 0, nullptr);
+        }
         if (candidate == INVALID_HANDLE_VALUE) {
             continue;
         }
@@ -109,8 +137,9 @@ bool RazerHidDevice::OpenUnlocked() {
 
         if (attributesOk && capsOk &&
             attributes.VendorID == VendorId &&
-            attributes.ProductID == HuntsmanV2TklProductId &&
-            caps.UsagePage == TargetUsagePage && caps.Usage == TargetUsage) {
+            attributes.ProductID == spec.productId &&
+            caps.UsagePage == spec.usagePage && caps.Usage == spec.usage &&
+            caps.FeatureReportByteLength == sizeof(FeatureReport)) {
             _handle = candidate;
             _devicePath = path;
             _lastError.clear();
@@ -122,7 +151,8 @@ bool RazerHidDevice::OpenUnlocked() {
 
     SetupDiDestroyDeviceInfoList(deviceInfo);
     if (!found && _lastError.empty()) {
-        SetLastErrorUnlocked(L"Huntsman V2 TKL HID interface 3 was not found or could not be opened");
+        SetLastErrorUnlocked(std::wstring(spec.description) +
+            L" was not found or could not be opened");
     }
     return found;
 }
@@ -220,17 +250,23 @@ bool RazerHidDevice::ExchangeUnlocked(FeatureReport& request, FeatureReport& res
 
 bool RazerHidDevice::QueryFirmware(std::string& version) {
     std::lock_guard<std::mutex> lock(_mutex);
-    FeatureReport request = MakeReport(0x00, 0x81, 0x02);
+    const std::array<std::uint8_t, 2> transactionIds =
+        _profile == Profile::Viper
+        ? std::array<std::uint8_t, 2>{ 0xFF, 0x3F }
+        : std::array<std::uint8_t, 2>{ 0x3F, 0x1F };
+
     FeatureReport response{};
-    if (!ExchangeUnlocked(request, response)) {
-        // OpenRazer uses 0x1F for this model while OpenRGB uses 0x3F.  Probe
-        // the alternative only for a read-only command and keep the working ID.
-        _transactionId = 0x1F;
-        request = MakeReport(0x00, 0x81, 0x02);
-        if (!ExchangeUnlocked(request, response)) {
-            _transactionId = 0x3F;
-            return false;
+    bool succeeded = false;
+    for (const std::uint8_t transactionId : transactionIds) {
+        FeatureReport request = MakeReport(0x00, 0x81, 0x02);
+        request.transactionId = transactionId;
+        if (ExchangeUnlocked(request, response)) {
+            succeeded = true;
+            break;
         }
+    }
+    if (!succeeded) {
+        return false;
     }
     version = std::to_string(response.arguments[0]) + "." +
         std::to_string(response.arguments[1]);
@@ -243,12 +279,16 @@ bool RazerHidDevice::SetStaticColor(
     std::lock_guard<std::mutex> lock(_mutex);
     FeatureReport report = MakeReport(0x0F, 0x02, 0x09);
     report.arguments[0] = 0x00; // Do not save to device storage.
-    report.arguments[1] = 0x05; // Backlight LED.
+    report.arguments[1] = _profile == Profile::Viper ? 0x04 : 0x05;
     report.arguments[2] = 0x01; // Static effect.
     report.arguments[5] = 0x01;
     report.arguments[6] = red;
     report.arguments[7] = green;
     report.arguments[8] = blue;
+    if (_profile == Profile::Viper) {
+        FeatureReport response{};
+        return ExchangeUnlocked(report, response);
+    }
     return SendUnlocked(report);
 }
 
@@ -256,12 +296,21 @@ bool RazerHidDevice::SetSpectrumEffect() {
     std::lock_guard<std::mutex> lock(_mutex);
     FeatureReport report = MakeReport(0x0F, 0x02, 0x06);
     report.arguments[0] = 0x00; // Do not save to device storage.
-    report.arguments[1] = 0x05; // Backlight LED.
+    report.arguments[1] = _profile == Profile::Viper ? 0x04 : 0x05;
     report.arguments[2] = 0x03; // Spectrum effect.
+    if (_profile == Profile::Viper) {
+        FeatureReport response{};
+        return ExchangeUnlocked(report, response);
+    }
     return SendUnlocked(report);
 }
 
 bool RazerHidDevice::SendLogicalFrame(const std::vector<int>& colors) {
+    if (_profile != Profile::HuntsmanV2Tkl) {
+        std::lock_guard<std::mutex> lock(_mutex);
+        SetLastErrorUnlocked(L"A logical keyboard frame was sent to a non-keyboard HID profile");
+        return false;
+    }
     if (colors.size() < LogicalColorCount) {
         std::lock_guard<std::mutex> lock(_mutex);
         SetLastErrorUnlocked(L"Logical keyboard frame contains fewer than 132 colors");

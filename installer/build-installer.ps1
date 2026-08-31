@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$AppVersion = '2.0.0.0',
+    [string]$AppVersion = '2.0.0.1',
     [switch]$SkipBuild,
     [string]$SignToolName = ''
 )

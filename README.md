@@ -1,12 +1,13 @@
 # Razeru 2
 
 Razeru 2 is a Windows tray application that visualizes the active keyboard
-input language on a Razer Huntsman V2 Tenkeyless. It reads the existing
-`.chroma` animations itself and sends lighting frames straight to the keyboard
-through the standard Windows HID stack.
+input language on a Razer Huntsman V2 Tenkeyless and the logo of a Razer Viper
+mouse. It reads the existing `.chroma` animations itself and sends lighting
+frames straight to both devices through the standard Windows HID stack.
 
 No Razer application, service, SDK runtime, filter driver, or animation DLL is
-required. The first hardware profile supports USB `VID_1532&PID_026B` only.
+required. Tested USB profiles are Huntsman V2 TKL (`1532:026B`) and Viper
+(`1532:0078`).
 
 Russian documentation: [README.ru.md](README.ru.md)
 
@@ -14,7 +15,8 @@ Russian documentation: [README.ru.md](README.ru.md)
 
 - Windows 10 or Windows 11, x64
 - Razer Huntsman V2 Tenkeyless (`1532:026B`) connected over USB
-- The standard Windows `HidUsb`/`kbdhid` drivers
+- Optional Razer Viper (`1532:0078`) for mouse-logo indication
+- The standard Windows `HidUsb`, `kbdhid`, and `mouhid` drivers
 - For development: Visual Studio 2022 Build Tools with MSVC, ATL/MFC and a
   Windows SDK
 
@@ -36,14 +38,15 @@ your keyboard. The safe validation and later removal order is documented in
 ```
 
 The application artifacts are written to `x64\Release`. The independent file
-reader test validates every bundled keyboard animation:
+reader test validates every bundled keyboard and mouse animation:
 
 ```powershell
 .\x64\Release\ChromaFileReaderTests.exe .\Animations
 ```
 
 The diagnostic utility in `tools/RazeruHidTest.cpp` can query firmware and send
-temporary static, frame, or spectrum effects without writing device storage.
+temporary static, frame, or spectrum effects on the keyboard and mouse without
+writing device storage.
 
 Build the per-user Windows installer with:
 
@@ -59,6 +62,8 @@ Build the per-user Windows installer with:
 - [Russian development guide](docs/DEVELOPMENT.ru.md)
 - [Razer software requirements and removal](docs/RAZER_REQUIREMENTS.md)
 - [ПО Razer: требования и удаление](docs/RAZER_REQUIREMENTS.ru.md)
+- [Razeru 2.0.0.1 release notes](docs/RELEASE_NOTES_2.0.0.1.md)
+- [Описание выпуска 2.0.0.1](docs/RELEASE_NOTES_2.0.0.1.ru.md)
 - [Razeru 2.0.0.0 release notes](docs/RELEASE_NOTES_2.0.0.md)
 - [Описание выпуска 2.0.0.0](docs/RELEASE_NOTES_2.0.0.ru.md)
 - [Third-party notices](THIRD_PARTY_NOTICES.md)

@@ -1,13 +1,13 @@
 # Razeru 2
 
 Razeru 2 — приложение для области уведомлений Windows, которое показывает
-активный язык ввода на клавиатуре Razer Huntsman V2 Tenkeyless. Оно само читает
-существующие анимации `.chroma` и передаёт кадры подсветки прямо клавиатуре
-через стандартный HID-стек Windows.
+активный язык ввода на клавиатуре Razer Huntsman V2 Tenkeyless и логотипе мыши
+Razer Viper. Оно само читает существующие анимации `.chroma` и передаёт кадры
+подсветки устройствам через стандартный HID-стек Windows.
 
 Приложения, службы, среда SDK, фильтрующие драйверы и библиотека анимаций Razer
-не требуются. Первый аппаратный профиль поддерживает только USB-устройство
-`VID_1532&PID_026B`.
+не требуются. Проверены USB-профили Huntsman V2 TKL (`1532:026B`) и Viper
+(`1532:0078`).
 
 English documentation: [README.md](README.md)
 
@@ -15,7 +15,8 @@ English documentation: [README.md](README.md)
 
 - Windows 10 или Windows 11 x64;
 - подключённая по USB Razer Huntsman V2 Tenkeyless (`1532:026B`);
-- штатные драйверы Windows `HidUsb` и `kbdhid`;
+- необязательно: Razer Viper (`1532:0078`) для индикации на логотипе мыши;
+- штатные драйверы Windows `HidUsb`, `kbdhid` и `mouhid`;
 - для разработки: Visual Studio 2022 Build Tools с MSVC, ATL/MFC и Windows SDK.
 
 ## Установка и запуск
@@ -37,15 +38,15 @@ English documentation: [README.md](README.md)
 ```
 
 Результат появится в `x64\Release`. Отдельный тест загрузчика проверяет все
-входящие в проект клавиатурные анимации:
+входящие в проект анимации клавиатуры и мыши:
 
 ```powershell
 .\x64\Release\ChromaFileReaderTests.exe .\Animations
 ```
 
-Диагностическая утилита `tools/RazeruHidTest.cpp` умеет читать версию прошивки
-и временно включать статический цвет, пользовательский кадр или спектр. В
-постоянную память клавиатуры она ничего не записывает.
+Диагностическая утилита `tools/RazeruHidTest.cpp` умеет читать версии прошивок
+и временно включать статический цвет, пользовательский кадр или спектр на
+клавиатуре и мыши. В постоянную память устройств она ничего не записывает.
 
 Сборка пользовательского инсталлятора:
 
@@ -61,6 +62,8 @@ English documentation: [README.md](README.md)
 - [Development guide in English](docs/DEVELOPMENT.md)
 - [ПО Razer: требования и удаление](docs/RAZER_REQUIREMENTS.ru.md)
 - [Razer software requirements and removal](docs/RAZER_REQUIREMENTS.md)
+- [Описание выпуска 2.0.0.1](docs/RELEASE_NOTES_2.0.0.1.ru.md)
+- [Razeru 2.0.0.1 release notes](docs/RELEASE_NOTES_2.0.0.1.md)
 - [Описание выпуска 2.0.0.0](docs/RELEASE_NOTES_2.0.0.ru.md)
 - [Razeru 2.0.0.0 release notes](docs/RELEASE_NOTES_2.0.0.md)
 - [Уведомления о сторонних компонентах](THIRD_PARTY_NOTICES.md)

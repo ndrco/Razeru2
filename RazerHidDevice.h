@@ -8,13 +8,19 @@
 #include <string>
 #include <vector>
 
-// Direct user-mode HID transport for the Razer Huntsman V2 Tenkeyless
-// (VID 1532, PID 026B).  The keyboard itself remains on the Microsoft HID
-// stack; no Razer SDK service or vendor kernel driver is used here.
+// Direct user-mode HID transport for the supported Razer devices. The normal
+// input collections remain on the Microsoft HID stack; no Razer SDK service
+// or vendor kernel driver is used here.
 class RazerHidDevice final {
 public:
+    enum class Profile {
+        HuntsmanV2Tkl,
+        Viper,
+    };
+
     static constexpr std::uint16_t VendorId = 0x1532;
     static constexpr std::uint16_t HuntsmanV2TklProductId = 0x026B;
+    static constexpr std::uint16_t ViperProductId = 0x0078;
     static constexpr std::size_t LogicalRows = 6;
     static constexpr std::size_t LogicalColumns = 22;
     static constexpr std::size_t DeviceRows = 6;
@@ -22,7 +28,7 @@ public:
     static constexpr std::size_t LogicalColumnOffset = 1;
     static constexpr std::size_t LogicalColorCount = LogicalRows * LogicalColumns;
 
-    RazerHidDevice() = default;
+    explicit RazerHidDevice(Profile profile = Profile::HuntsmanV2Tkl);
     ~RazerHidDevice();
 
     RazerHidDevice(const RazerHidDevice&) = delete;
@@ -75,5 +81,6 @@ private:
     HANDLE _handle{ INVALID_HANDLE_VALUE };
     std::wstring _devicePath;
     std::wstring _lastError;
+    Profile _profile;
     std::uint8_t _transactionId{ 0x3F };
 };

@@ -33,7 +33,11 @@
   <ItemGroup>
     <ClCompile Include="ChromaFileReaderTests.cpp" />
     <ClCompile Include="..\ChromaFileReader.cpp" />
+    <ClCompile Include="..\ChromaMouseFileReader.cpp" />
   </ItemGroup>
-  <ItemGroup><ClInclude Include="..\ChromaFileReader.h" /></ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\ChromaFileReader.h" />
+    <ClInclude Include="..\ChromaMouseFileReader.h" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

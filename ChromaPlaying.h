@@ -12,6 +12,7 @@
 #include <optional>
 #include <mutex>
 #include "ChromaFileReader.h"
+#include "ChromaMouseFileReader.h"
 #include "RazerHidDevice.h"
 #include "Razer/ChromaAnimationAPI.h"
 
@@ -137,7 +138,7 @@ public:
     // Stop the automatic keyboard animation
     void StopAutoKeyboard();
 
-    // Kept for configuration compatibility; Razeru 2 controls the keyboard only.
+    // Start or switch the direct-HID animation for supported non-keyboard devices.
     void PlayingAutoDevices();
 
     // Launch editor of .chroma files
@@ -185,7 +186,9 @@ public:
     int _activeSceneEffectIndex{ -1 }; // Active keyboard animation index
     std::vector<int> _tempColorsKeyboard; // Temporary array for processing keyboard effects
     RazerHidDevice _keyboard;
+    RazerHidDevice _mouse{ RazerHidDevice::Profile::Viper };
     ChromaFileReader _activeAnimation;
+    ChromaMouseFileReader _activeMouseAnimation;
     std::mutex _animationMutex;
     bool _devicesAnimation{ true }; //Flag for enabling Razer device animation (except keyboard)
     std::vector<DEVICE_INFO_TYPE> _connectedDevices; // List of connected Razer devices (except keyboard)
@@ -210,6 +213,9 @@ public:
 
     // Restore the keyboard's firmware spectrum effect.
     void _ReleaseKeyboardEffect();
+
+    // Display the logo cell from the active 9x7 mouse animation.
+    bool _SetMouseFrame(const ChromaKeyboardEffect& effect);
 
     // Blend the current frame `tempColors` of the active animation `effect`
     // with the array of keys requiring backlighting (`colors`)
