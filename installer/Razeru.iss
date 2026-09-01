@@ -1,5 +1,5 @@
 #ifndef AppVersion
-  #define AppVersion "2.0.0.1"
+  #define AppVersion "2.0.0.2"
 #endif
 #ifndef BuildOutputDir
   #define BuildOutputDir SourcePath + "..\x64\Release"
@@ -19,9 +19,9 @@ AppName={#AppName}
 AppVersion={#AppVersion}
 AppVerName={#AppName} {#AppVersion}
 AppPublisher={#AppPublisher}
-AppPublisherURL=https://github.com/ndrco/Razeru
-AppSupportURL=https://github.com/ndrco/Razeru/issues
-AppUpdatesURL=https://github.com/ndrco/Razeru/releases
+AppPublisherURL=https://github.com/ndrco/Razeru2
+AppSupportURL=https://github.com/ndrco/Razeru2/issues
+AppUpdatesURL=https://github.com/ndrco/Razeru2/releases
 VersionInfoVersion={#AppVersion}
 VersionInfoCompany={#AppPublisher}
 VersionInfoDescription=Razeru 2 Windows installer

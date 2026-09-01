@@ -9,6 +9,7 @@
 #define CHROMA_PLAYING_H
 
 
+#include <chrono>
 #include <optional>
 #include <mutex>
 #include "ChromaFileReader.h"
@@ -190,6 +191,8 @@ public:
     ChromaFileReader _activeAnimation;
     ChromaMouseFileReader _activeMouseAnimation;
     std::mutex _animationMutex;
+    std::mutex _mouseReconnectMutex;
+    std::chrono::steady_clock::time_point _nextMouseOpenAttempt{};
     bool _devicesAnimation{ true }; //Flag for enabling Razer device animation (except keyboard)
     std::vector<DEVICE_INFO_TYPE> _connectedDevices; // List of connected Razer devices (except keyboard)
 
@@ -216,6 +219,10 @@ public:
 
     // Display the logo cell from the active 9x7 mouse animation.
     bool _SetMouseFrame(const ChromaKeyboardEffect& effect);
+
+    // Reopen an optional mouse after a transient HID failure, at most once
+    // every two seconds while it is unavailable.
+    bool _EnsureMouseOpen();
 
     // Blend the current frame `tempColors` of the active animation `effect`
     // with the array of keys requiring backlighting (`colors`)

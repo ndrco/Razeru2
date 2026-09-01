@@ -38,17 +38,11 @@ int ChromaPlaying::InitChroma(HWND hwndMain, UINT changedMessage) {
         return 102;
     }
     _connectedDevices.clear();
-    if (_mouse.Open()) {
-        std::string mouseFirmware;
-        if (_mouse.QueryFirmware(mouseFirmware)) {
-            DEVICE_INFO_TYPE mouseInfo{};
-            mouseInfo.DeviceType = DEVICE_INFO_TYPE::DEVICE_MOUSE;
-            mouseInfo.Connected = 1;
-            _connectedDevices.push_back(mouseInfo);
-        }
-        else {
-            _mouse.Close();
-        }
+    if (_EnsureMouseOpen()) {
+        DEVICE_INFO_TYPE mouseInfo{};
+        mouseInfo.DeviceType = DEVICE_INFO_TYPE::DEVICE_MOUSE;
+        mouseInfo.Connected = 1;
+        _connectedDevices.push_back(mouseInfo);
     }
     return 0;
 }
@@ -270,7 +264,7 @@ void ChromaPlaying::_ReleaseKeyboardEffect() {
 // Switch the mouse animation immediately when the active layout changes.
 void ChromaPlaying::PlayingAutoDevices() {
     const auto* effect = GetActiveSceneEffect();
-    if (!_devicesAnimation || effect == nullptr || !_mouse.IsOpen()) {
+    if (!_devicesAnimation || effect == nullptr) {
         {
             std::lock_guard<std::mutex> lock(_animationMutex);
             _activeMouseAnimation.Clear();
@@ -285,7 +279,7 @@ void ChromaPlaying::PlayingAutoDevices() {
 
 
 bool ChromaPlaying::_SetMouseFrame(const ChromaKeyboardEffect& effect) {
-    if (!_devicesAnimation || !_mouse.IsOpen() || effect.mouseAnimation.empty()) {
+    if (!_devicesAnimation || effect.mouseAnimation.empty() || !_EnsureMouseOpen()) {
         return false;
     }
 
@@ -311,10 +305,35 @@ bool ChromaPlaying::_SetMouseFrame(const ChromaKeyboardEffect& effect) {
     }
 
     // Chroma files store Windows COLORREF values (0x00BBGGRR).
-    return _mouse.SetStaticColor(
+    const bool sent = _mouse.SetStaticColor(
         static_cast<std::uint8_t>(color & 0xFF),
         static_cast<std::uint8_t>((color >> 8) & 0xFF),
         static_cast<std::uint8_t>((color >> 16) & 0xFF));
+    if (!sent) {
+        // Force a fresh handle on the next throttled attempt. This also covers
+        // feature-report failures that leave the metadata handle technically
+        // open but unusable.
+        _mouse.Close();
+    }
+    return sent;
+}
+
+
+bool ChromaPlaying::_EnsureMouseOpen() {
+    if (_mouse.IsOpen()) {
+        return true;
+    }
+
+    std::lock_guard<std::mutex> lock(_mouseReconnectMutex);
+    if (_mouse.IsOpen()) {
+        return true;
+    }
+    const auto now = std::chrono::steady_clock::now();
+    if (now < _nextMouseOpenAttempt) {
+        return false;
+    }
+    _nextMouseOpenAttempt = now + std::chrono::seconds(2);
+    return _mouse.Open();
 }
 
 
