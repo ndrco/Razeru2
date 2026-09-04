@@ -9,6 +9,7 @@
 #include <iomanip>
 #include <iostream>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -28,6 +29,57 @@ bool ParseColor(const std::wstring& text, int& color) {
     catch (...) {
         return false;
     }
+}
+
+// Run with Razeru and other RGB controllers stopped. A second connection
+// changes the hardware without modifying the renderer's cached state.
+int TestBrightnessRecovery(RazerHidDevice& renderer, bool mouse) {
+    RazerHidDevice control(mouse ? RazerHidDevice::Profile::Viper
+                                : RazerHidDevice::Profile::HuntsmanV2Tkl);
+    const auto output = [&]() {
+        return mouse ? renderer.SetStaticColor(255, 0, 255)
+            : renderer.SendLogicalFrame(std::vector<int>(
+                RazerHidDevice::LogicalColorCount, 0x00FF00FF));
+    };
+    const auto expect = [&](std::uint8_t expected) {
+        std::uint8_t actual = 0;
+        if (!control.QueryBrightness(actual) || actual != expected) {
+            std::wcerr << L"Brightness mismatch: expected "
+                << static_cast<unsigned int>(expected) << L", received "
+                << static_cast<unsigned int>(actual) << L'\n';
+            return false;
+        }
+        return true;
+    };
+    const auto run = [&]() {
+        if (!control.SetBrightness(0) || !expect(0) ||
+            !output() || !expect(255)) return false;
+        std::wcout << L"PASS: first output restores zero brightness.\n";
+
+        for (const std::uint8_t value : { std::uint8_t{0}, std::uint8_t{128} }) {
+            if (!control.SetBrightness(value) || !expect(value)) return false;
+            std::this_thread::sleep_for(std::chrono::milliseconds(2200));
+            if (!output() || !expect(value == 0 ? 255 : value)) return false;
+            std::wcout << L"PASS: periodic check "
+                << (value == 0 ? L"restores zero" : L"preserves nonzero")
+                << L" on the existing connection.\n";
+        }
+
+        if (!control.SetBrightness(0) || !expect(0)) return false;
+        renderer.InvalidateBrightness();
+        if (!output() || !expect(255)) return false;
+        std::wcout << L"PASS: resume invalidation restores brightness.\n";
+        return true;
+    };
+    const bool passed = run();
+    if (!passed) {
+        PrintError(renderer);
+        PrintError(control);
+    }
+    // Restore visible firmware lighting even when a test fails.
+    const bool restored = control.SetBrightness(255) && control.SetSpectrumEffect();
+    if (!restored) PrintError(control);
+    return passed && restored ? 0 : 7;
 }
 
 bool ParseHexWord(const std::wstring& text, std::uint16_t& value) {
@@ -169,6 +221,34 @@ int wmain(int argc, wchar_t** argv) {
         return 0;
     }
 
+    if (command == L"brightness-recovery-test" && argc == 2) {
+        return TestBrightnessRecovery(device, mouseCommand);
+    }
+
+    if (command == L"brightness" && (argc == 2 || argc == 3)) {
+        if (argc == 3) {
+            const std::wstring text = argv[2];
+            if (text.empty() || text.size() > 3 ||
+                text.find_first_not_of(L"0123456789") != std::wstring::npos ||
+                std::stoul(text) > 255) {
+                std::wcerr << L"Expected brightness in the range 0..255.\n";
+                return 5;
+            }
+            if (!device.SetBrightness(static_cast<std::uint8_t>(std::stoul(text)))) {
+                PrintError(device);
+                return 6;
+            }
+        }
+        std::uint8_t brightness = 0;
+        if (!device.QueryBrightness(brightness)) {
+            PrintError(device);
+            return 6;
+        }
+        std::wcout << L"Temporary brightness: " << static_cast<unsigned int>(brightness)
+            << L"/255\n";
+        return 0;
+    }
+
     if (command == L"spectrum") {
         if (!device.SetSpectrumEffect()) {
             PrintError(device);
@@ -207,6 +287,8 @@ int wmain(int argc, wchar_t** argv) {
     }
 
     std::wcerr << L"Usage: RazeruHidTest [info|spectrum|static RRGGBB|frame RRGGBB|"
+        L"brightness [0..255]|mouse-brightness [0..255]|"
+        L"brightness-recovery-test|mouse-brightness-recovery-test|"
         L"mouse-info|mouse-spectrum|mouse-static RRGGBB|list PPPP]\n";
     return 1;
 }

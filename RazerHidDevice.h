@@ -3,6 +3,7 @@
 #include <Windows.h>
 
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <mutex>
 #include <string>
@@ -39,6 +40,10 @@ public:
     bool IsOpen() const;
 
     bool QueryFirmware(std::string& version);
+    // Temporary brightness only; querying/opening a device does not change it.
+    bool QueryBrightness(std::uint8_t& brightness);
+    bool SetBrightness(std::uint8_t brightness);
+    void InvalidateBrightness();
     bool SetStaticColor(std::uint8_t red, std::uint8_t green, std::uint8_t blue);
     bool SetSpectrumEffect();
     bool SendLogicalFrame(const std::vector<int>& colors);
@@ -71,6 +76,9 @@ private:
     bool SendUnlocked(FeatureReport& report);
     bool ReceiveUnlocked(FeatureReport& report);
     bool ExchangeUnlocked(FeatureReport& request, FeatureReport& response);
+    bool QueryBrightnessUnlocked(std::uint8_t& brightness);
+    bool SetBrightnessUnlocked(std::uint8_t brightness);
+    bool EnsureBrightnessUnlocked();
     FeatureReport MakeReport(std::uint8_t commandClass, std::uint8_t commandId,
         std::uint8_t dataSize) const;
     static std::uint8_t CalculateCrc(const FeatureReport& report);
@@ -83,4 +91,6 @@ private:
     std::wstring _lastError;
     Profile _profile;
     std::uint8_t _transactionId{ 0x3F };
+    bool _brightnessInitialized{ false };
+    std::chrono::steady_clock::time_point _nextBrightnessCheck{};
 };

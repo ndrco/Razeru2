@@ -60,6 +60,12 @@ int ChromaPlaying::Cleanup() {
 }
 
 
+// Device brightness can reset on lock/sleep while HID handles stay valid.
+void ChromaPlaying::ResumeLighting() {
+    _keyboard.InvalidateBrightness();
+    _mouse.InvalidateBrightness();
+}
+
 // Launch settings dialog using RzruUI.dll
 void ChromaPlaying::StartSettings() {
 

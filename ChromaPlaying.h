@@ -116,6 +116,7 @@ public:
 
     // Restore a hardware lighting effect and release the HID handle.
     int Cleanup();
+    void ResumeLighting();
     
     // Launch settings dialog using RzruUI.dll
     void StartSettings();

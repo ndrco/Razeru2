@@ -14,6 +14,7 @@
 namespace {
 constexpr std::chrono::milliseconds ReportDelay{ 1 };
 constexpr std::chrono::milliseconds ResponseDelay{ 5 };
+constexpr std::chrono::seconds BrightnessCheckInterval{ 2 };
 
 struct ProfileSpec {
     std::uint16_t productId;
@@ -158,6 +159,8 @@ bool RazerHidDevice::OpenUnlocked() {
 }
 
 void RazerHidDevice::CloseUnlocked() {
+    _brightnessInitialized = false;
+    _nextBrightnessCheck = {};
     if (_handle != INVALID_HANDLE_VALUE) {
         CloseHandle(_handle);
         _handle = INVALID_HANDLE_VALUE;
@@ -274,10 +277,100 @@ bool RazerHidDevice::QueryFirmware(std::string& version) {
     return true;
 }
 
+bool RazerHidDevice::QueryBrightness(std::uint8_t& brightness) {
+    std::lock_guard<std::mutex> lock(_mutex);
+    return QueryBrightnessUnlocked(brightness);
+}
+
+bool RazerHidDevice::SetBrightness(std::uint8_t brightness) {
+    std::lock_guard<std::mutex> lock(_mutex);
+    return SetBrightnessUnlocked(brightness);
+}
+
+void RazerHidDevice::InvalidateBrightness() {
+    std::lock_guard<std::mutex> lock(_mutex);
+    _brightnessInitialized = false;
+    _nextBrightnessCheck = {};
+}
+
+bool RazerHidDevice::QueryBrightnessUnlocked(std::uint8_t& brightness) {
+    FeatureReport request = MakeReport(0x0F, 0x84, 0x03);
+    request.transactionId = _profile == Profile::Viper ? 0x3F : 0x1F;
+    request.arguments[0] = 0x00; // Current temporary state, not stored profile.
+    request.arguments[1] = _profile == Profile::Viper ? 0x04 : 0x05;
+    FeatureReport response{};
+    if (!ExchangeUnlocked(request, response)) {
+        return false;
+    }
+    if (response.dataSize != 3 || response.arguments[0] != request.arguments[0] ||
+        response.arguments[1] != request.arguments[1]) {
+        SetLastErrorUnlocked(L"Unexpected brightness response");
+        return false;
+    }
+    brightness = response.arguments[2];
+    return true;
+}
+
+bool RazerHidDevice::SetBrightnessUnlocked(std::uint8_t brightness) {
+    FeatureReport request = MakeReport(0x0F, 0x04, 0x03);
+    request.transactionId = _profile == Profile::Viper ? 0x3F : 0x1F;
+    request.arguments[0] = 0x00; // NOSTORE: never write device flash/profile.
+    request.arguments[1] = _profile == Profile::Viper ? 0x04 : 0x05;
+    request.arguments[2] = brightness;
+    FeatureReport response{};
+    if (!ExchangeUnlocked(request, response)) {
+        CloseUnlocked();
+        return false;
+    }
+    std::uint8_t actual = 0;
+    if (!QueryBrightnessUnlocked(actual)) {
+        CloseUnlocked();
+        return false;
+    }
+    if (actual != brightness) {
+        SetLastErrorUnlocked(L"Device did not apply requested brightness");
+        CloseUnlocked();
+        return false;
+    }
+    _brightnessInitialized = true;
+    _nextBrightnessCheck = std::chrono::steady_clock::now() + BrightnessCheckInterval;
+    _lastError.clear();
+    return true;
+}
+
+bool RazerHidDevice::EnsureBrightnessUnlocked() {
+    if (!OpenUnlocked()) {
+        return false;
+    }
+    if (!_brightnessInitialized) {
+        return SetBrightnessUnlocked(255);
+    }
+    const auto now = std::chrono::steady_clock::now();
+    if (now < _nextBrightnessCheck) {
+        return true;
+    }
+    // A session/power transition can reset brightness without invalidating
+    // the handle. Check infrequently, serialized with our frame reports.
+    std::uint8_t actual = 0;
+    if (!QueryBrightnessUnlocked(actual)) {
+        CloseUnlocked();
+        return false;
+    }
+    if (actual == 0) {
+        return SetBrightnessUnlocked(255);
+    }
+    // Preserve nonzero dimming instead of forcing 100% on every check.
+    _nextBrightnessCheck = now + BrightnessCheckInterval;
+    return true;
+}
+
 bool RazerHidDevice::SetStaticColor(
     std::uint8_t red, std::uint8_t green, std::uint8_t blue) {
     std::lock_guard<std::mutex> lock(_mutex);
     FeatureReport report = MakeReport(0x0F, 0x02, 0x09);
+    if (!EnsureBrightnessUnlocked()) {
+        return false;
+    }
     report.arguments[0] = 0x00; // Do not save to device storage.
     report.arguments[1] = _profile == Profile::Viper ? 0x04 : 0x05;
     report.arguments[2] = 0x01; // Static effect.
@@ -294,6 +387,9 @@ bool RazerHidDevice::SetStaticColor(
 
 bool RazerHidDevice::SetSpectrumEffect() {
     std::lock_guard<std::mutex> lock(_mutex);
+    if (!EnsureBrightnessUnlocked()) {
+        return false;
+    }
     FeatureReport report = MakeReport(0x0F, 0x02, 0x06);
     report.arguments[0] = 0x00; // Do not save to device storage.
     report.arguments[1] = _profile == Profile::Viper ? 0x04 : 0x05;
@@ -318,6 +414,9 @@ bool RazerHidDevice::SendLogicalFrame(const std::vector<int>& colors) {
     }
 
     std::lock_guard<std::mutex> lock(_mutex);
+    if (!EnsureBrightnessUnlocked()) {
+        return false;
+    }
     for (std::size_t row = 0; row < DeviceRows; ++row) {
         FeatureReport report = MakeReport(
             0x0F, 0x03, static_cast<std::uint8_t>(5 + DeviceColumns * 3));

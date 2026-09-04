@@ -49,6 +49,17 @@ Link, wireless variants, and other product IDs are not sent lighting commands.
 
 ## Troubleshooting
 
+- **Everything is dark after power loss:** version 2.0.0.3 sets temporary
+  keyboard and mouse-logo brightness to 100% before the first lighting output
+  and after reopening the HID connection. Read-back confirms the setting;
+  the stored device profile is not changed. Earlier versions could transmit
+  valid colors while brightness remained zero.
+- **Mouse goes dark after screen lock:** version 2.0.0.4 reapplies temporary
+  100% brightness when lighting resumes after unlock. During effect output,
+  brightness is checked approximately every 2 seconds: zero is restored to
+  100%, while nonzero brightness is preserved. This also covers delayed
+  brightness resets without a disconnected HID handle. Exit Razeru before
+  intentionally leaving the device switched off.
 - **Keyboard not found:** reconnect the keyboard directly, confirm the USB ID
   in Device Manager, and verify that `HidUsb` is active on interface `MI_03`.
 - **Mouse does not change color:** verify `1532:0078`, interface `MI_00`, the

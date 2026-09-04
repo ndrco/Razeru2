@@ -47,6 +47,41 @@ read/write access, so the handle is opened without those flags while
 
 ## Animation compatibility
 
+Starting with 2.0.0.3, the first lighting output on each new HID handle sets
+brightness to 255 with `0F:04` and verifies it using `0F:84`. Both commands
+use `NOSTORE=0`, `BACKLIGHT_LED=5` / `LOGO_LED=4`, and transaction IDs `1F`
+for the keyboard / `3F` for the mouse. Closing the handle clears initialization
+state. Verification failures close the handle so the next output retries.
+Plain `Open`, `info`, and brightness queries do not change the lighting.
+
+In 2.0.0.4, `startAll()` calls `ResumeLighting()` to invalidate initialization
+for both devices before resuming output after `WTS_SESSION_UNLOCK`, even
+when the HID handle remains open. Additionally, `EnsureBrightnessUnlocked()`
+checks brightness during effect output at most once every 2 seconds using a
+steady clock. Zero is replaced with 255; nonzero brightness is preserved
+until the next initialization. Queries share the frame-output mutex; there
+is no separate polling while output is paused.
+
+Recovery regression: set temporary brightness to zero during animation and
+verify that it returns to 255 after the next two-second interval. Repeat with
+128: the periodic check must preserve it. Separately test lock/unlock with
+zero brightness before resuming. A synthetic `WM_WTSSESSION_CHANGE` message
+tests the application handler but does not replace a manual, real Windows
+screen-lock test on the hardware.
+
+For automated hardware regression, stop Razeru and other RGB controllers,
+then run `RazeruHidTest brightness-recovery-test` and
+`RazeruHidTest mouse-brightness-recovery-test`. They check first output,
+periodic zero recovery, preservation of brightness 128, and resume
+invalidation. These commands temporarily change lighting and finish at
+brightness 255 with the spectrum effect; restart Razeru afterwards.
+
+Diagnostics: `RazeruHidTest brightness [0..255]` and
+`RazeruHidTest mouse-brightness [0..255]`; omit the number for read-only access.
+Regression: stop Razeru, set temporary brightness to 0, exit the test, send
+`frame FF00FF` / `mouse-static FF00FF` from a new process, and verify brightness
+255. Then restart Razeru. The `VARSTORE=1` profile is never written.
+
 `.chroma` version 1 is read without the Razer animation DLL. The reader checks
 the device type, frame count, exact file length, finite durations and every
 read. It supports standard Keyboard 6x22 and Keyboard Extended 8x24. For the

@@ -362,6 +362,7 @@ void pauseAll() {
 
 // Start or resume all activities: set up the timer, animations, and hooks
 void startAll() {
+    chroma.ResumeLighting(); // Revalidate brightness before resumed output.
     activeLayout = 0x000; // Reset the active layout
     GetActiveLayout(); // Check the current keyboard layout
     if (chroma.IsKeyAnimationOn() || chroma.IsColorKeyboardOn()) {
